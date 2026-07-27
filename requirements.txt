@@ -1,0 +1,5 @@
+flask>=1.0
+python-docx>=1.0
+openpyxl>=2.5
+requests>=2.20
+pandas>=1.0
