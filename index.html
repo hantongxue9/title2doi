@@ -729,24 +729,35 @@ function matchScore(query,candidate){
   var stripPunct=function(s){return s.replace(/[^a-z0-9一-鿿]/g,'')};
   if(stripPunct(q)===stripPunct(c)&&Math.abs(q.length-c.length)<10)return 98;
 
-  // 否则严格计算：词级Jaccard × 词序LCS，上限封顶70
-  var tokenize=function(s){
-    // 中文按字切，英文按空格切
-    var hasCJK=/[一-鿿]/.test(s);
-    if(hasCJK)return s.replace(/[\s,;:.!?()\[\]{}""''\-–—]+/g,'').split('');
-    return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean);
-  };
-  var qt=tokenize(q),ct=tokenize(c);
+  // 严格计算：中文二元组，英文词级，上限不同
+  var hasCJK=/[一-鿿]/.test(q)||/[一-鿿]/.test(c);
+  var qt,ct,maxScore;
+
+  if(hasCJK){
+    // 中文：二元组（bigram），相邻两字组成一个token
+    var bigrams=function(s){
+      var chars=s.replace(/[\s,;:.!?()\[\]{}""''\-–—]+/g,'').split('');
+      var bg=[];for(var i=0;i<chars.length-1;i++)bg.push(chars[i]+chars[i+1]);
+      return bg;
+    };
+    qt=bigrams(q);ct=bigrams(c);
+    maxScore=50; // 中文封顶50，不是完全一致就不可能高
+  }else{
+    // 英文：词级token
+    var tk=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean)};
+    qt=tk(q);ct=tk(c);
+    maxScore=70; // 英文封顶70，允许词序微调
+  }
   if(!qt.length||!ct.length)return 0;
 
-  // 词级 Jaccard
+  // Jaccard 相似度
   var qSet={},cSet={};
   qt.forEach(function(w){qSet[w]=(qSet[w]||0)+1});
   ct.forEach(function(w){cSet[w]=(cSet[w]||0)+1});
   var shared=0;Object.keys(qSet).forEach(function(w){if(cSet[w])shared+=Math.min(qSet[w],cSet[w])});
   var jaccard=shared/(qt.length+ct.length-shared);
 
-  // 词序 LCS
+  // LCS 词序
   var lcs=function(a,b){
     var m=a.length,n=b.length,dp=[];
     for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0}
@@ -759,8 +770,7 @@ function matchScore(query,candidate){
   var lenRatio=Math.min(q.length,c.length)/Math.max(q.length,c.length);
 
   var raw=jaccard*50+seqRatio*30+lenRatio*20;
-  // 封顶70，不是完全匹配就不可能高分
-  return Math.min(Math.round(raw*70)/10,70);
+  return Math.min(Math.round(raw*maxScore/10)/10,maxScore);
 }
 async function lookupDOI(title){
   var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false};
