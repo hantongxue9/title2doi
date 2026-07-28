@@ -774,16 +774,20 @@ function matchScore(query,candidate){
 }
 async function lookupDOI(title){
   var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false};
-  try{
-    var resp=await fetch('https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=5');
-    if(!resp.ok){res.error='Crossref 请求失败';return res}
-    var items=((await resp.json()).message||{}).items||[];
-    if(!items.length){res.error='未找到匹配记录';return res}
-    var best=null,bestScore=0;
-    items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s}}});
-    if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
-    else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
-  }catch(e){res.error='查询失败: '+e.message}
+  var url='https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=5';
+  for(var attempt=0;attempt<2;attempt++){
+    try{
+      var resp=await fetch(url);
+      if(!resp.ok){if(attempt===0){await sleep(500);continue};res.error='Crossref 请求失败';return res}
+      var items=((await resp.json()).message||{}).items||[];
+      if(!items.length){res.error='未找到匹配记录';return res}
+      var best=null,bestScore=0;
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s}}});
+      if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
+      else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
+      break;
+    }catch(e){if(attempt===0){await sleep(500);continue};res.error='查询失败: '+e.message}
+  }
   res.confidence_level=res.confidence>=90?'高':'低';
   return res;
 }
