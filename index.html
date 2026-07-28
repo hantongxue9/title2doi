@@ -378,6 +378,7 @@ async function llmParse(text,apiBase,apiKey,model){
   var url=apiBase;if(!url.endsWith('/chat/completions')){if(url.endsWith('/'))url+='chat/completions';else if(url.indexOf('/v1')!==-1)url+='/chat/completions'}
   var resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:model,messages:[{role:'system',content:LLM_PROMPT},{role:'user',content:'请从以下文本中提取所有文章标题：\n\n'+text}],max_tokens:2000,temperature:0.1})});
   if(resp.status===401||resp.status===403)throw new Error('API Key 无效或无权限。请检查高级设置中的 Key。');
+  if(resp.status===402)throw new Error('API 账户余额不足，请前往 API 平台充值。');
   if(resp.status===404)throw new Error('API 端点不存在。请检查 API 地址。');
   if(!resp.ok){var err=await resp.text();try{var ej=JSON.parse(err);if(ej.message&&ej.message.toLowerCase().indexOf('model')!==-1)throw new Error("模型 '"+model+"' 不存在。请在高级设置中修改模型名称。")}catch(e){if(e.message.indexOf('模型')!==-1)throw e}throw new Error('API 错误 (HTTP '+resp.status+'): '+err.substring(0,200))}
   var data=await resp.json(),content=data.choices[0].message.content||'';
