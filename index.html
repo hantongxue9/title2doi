@@ -932,14 +932,13 @@ function renderResults(results){
     var tag='';if(displayFound){if(displayConf>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=displayConf>0?Math.round(displayConf)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
-    // 重试按钮：未找到或低置信度
-    var needRetry=!r.is_found||(r.is_found&&r.confidence<90);
     // 移入按钮：重试过且查到了DOI但原始分类不是高置信度
     var canPromote=r._retried&&r.is_found&&(!r._origFound||r._origConf<90);
     var statusCell='';
     if(r.is_found&&r.confidence>=90&&!r._retried)statusCell='✓';
     else if(canPromote)statusCell='<button class="btn-promote" onclick="promoteToHigh('+i+')" title="确认移入高置信度">✓ 移入高置信度</button>';
-    else statusCell=(r.is_found?'✓':'<span class="t3">未找到</span>')+(needRetry?' <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>':'');
+    else if(!r.is_found)statusCell='<button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
+    else statusCell='✓ <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
     h+='<tr data-conf="'+confClass+'" data-found="'+(displayFound?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
@@ -1012,10 +1011,12 @@ async function retrySingleQuery(idx,btn){
 }
 function promoteToHigh(idx){
   if(!ST.results||!ST.results[idx])return;
-  ST.results[idx].confidence=91;ST.results[idx].confidence_level='高';ST.results[idx].is_found=true;
-  ST.results[idx]._retried=false;ST.results[idx]._origConf=null;ST.results[idx]._origFound=null;
+  var r=ST.results[idx];
+  r.confidence=91;r.confidence_level='高';r.is_found=true;
+  r._retried=false;r._origConf=null;r._origFound=null;
   renderResults(ST.results);
   if(ST.resultFilter&&ST.resultFilter!=='all')setFilter(ST.resultFilter);
+  updateBatchBtn();
   toast('已移入高置信度 ✓');
 }
 async function batchRetry(filter){
@@ -1036,7 +1037,7 @@ async function batchRetry(filter){
     r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found;
     ST.results[idx]=r;
     // 即时更新该行
-    if(row){var td=row.querySelector('td:last-child');if(td&&!r.is_found)td.innerHTML='<span class="t3">未找到</span> <button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>';
+    if(row){var td=row.querySelector('td:last-child');if(td&&!r.is_found)td.innerHTML='<button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>';
     else if(td&&r.is_found)td.innerHTML='<button class="btn-promote" onclick="promoteToHigh('+idx+')" title="确认移入高置信度">✓ 移入高置信度</button>'}
   }
   renderResults(ST.results);
