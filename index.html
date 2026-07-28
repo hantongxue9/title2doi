@@ -375,7 +375,12 @@ function parseText(raw){
 var LLM_PROMPT='你是一个学术文献信息提取助手。从以下文本中提取所有文章标题。\n\n规则：\n1. 只提取文章标题本身，去掉作者姓名、期刊名、年份、卷期页码、DOI、ISSN\n2. 每篇文章输出一个标题，一行一个，不要空行\n3. 如果原文中标题因换行被截断，请合并成完整的一行\n4. 中英文标题均提取，保持原标题语言\n5. 不要编号、前缀、后缀\n6. 无法确定时宁可跳过\n7. 直接输出标题列表，不要解释';
 
 async function llmParse(text,apiBase,apiKey,model){
-  var url=apiBase;if(!url.endsWith('/chat/completions')){if(url.endsWith('/'))url+='chat/completions';else if(url.indexOf('/v1')!==-1)url+='/chat/completions'}
+  var url=apiBase;
+  if(!url.endsWith('/chat/completions')){
+    if(url.endsWith('/'))url=url+'chat/completions';
+    else if(url.indexOf('/v1')!==-1)url=url+'/chat/completions';
+    else url=url.replace(/\/+$/,'')+'/v1/chat/completions';
+  }
   var resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:model,messages:[{role:'system',content:LLM_PROMPT},{role:'user',content:'请从以下文本中提取所有文章标题：\n\n'+text}],max_tokens:2000,temperature:0.1})});
   if(resp.status===401||resp.status===403)throw new Error('API Key 无效或无权限。请检查高级设置中的 Key。');
   if(resp.status===402)throw new Error('API 账户余额不足，请前往 API 平台充值。');

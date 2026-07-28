@@ -118,10 +118,10 @@ def parse_via_llm(
     if not base_url.endswith('/chat/completions'):
         if base_url.endswith('/'):
             base_url = base_url + 'chat/completions'
-        elif '/v1' in base_url and not base_url.endswith('/v1'):
-            base_url = base_url + '/chat/completions'
-        elif base_url.endswith('/v1'):
-            base_url = base_url + '/chat/completions'
+        elif '/v1' in base_url:
+            base_url = base_url.rstrip('/') + '/chat/completions'
+        else:
+            base_url = base_url.rstrip('/') + '/v1/chat/completions'
 
     headers = {
         "Content-Type": "application/json",
