@@ -971,12 +971,12 @@ function updateBatchBtn(){
   var hasPromotable=ST.results&&ST.results.some(function(r){return r._retried&&r.is_found&&(!r._origFound||r._origConf<90)});
   var label=f==='low'?'低置信度':'未找到';
   if(hasPromotable){
-    btn.className='btn btn-2 btn-sm'; // green success style
+    btn.className='btn btn-2 btn-sm';
     btn.textContent='✓ 全部移入高置信度';
     btn.onclick=function(){batchPromote(f)};
   }else{
-    btn.className='btn btn-3 btn-sm'; // outline style
-    btn.textContent='全部重试 '+label+'条目';
+    btn.className='btn btn-1 btn-sm'; // primary blue solid
+    btn.textContent='🔄 全部重试 '+label+'条目';
     btn.onclick=function(){batchRetry(f)};
   }
 }
