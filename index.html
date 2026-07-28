@@ -716,26 +716,33 @@ function findTitleCol(data){
    DOI Lookup (Crossref)
    ═══════════════════════════════════════════════════════════ */
 function matchScore(query,candidate){
-  // 词级 F1 匹配：同时考虑精确率和召回率，比字符级严格得多
+  // 词级匹配 + 词序约束：同时要求词相同且顺序一致
   if(!candidate)return 0;
   var q=query.toLowerCase().trim(),c=candidate.toLowerCase().trim();
   if(q===c)return 100;
-  // Tokenize: split on whitespace and punctuation
   var tokenize=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean)};
   var qw=tokenize(q),cw=tokenize(c);
   if(!qw.length||!cw.length)return 0;
-  // Count exact word matches (with multiplicity)
+
+  // 1. 词级 F1（词是否出现）
   var matched=0,cwRemain=cw.slice();
-  qw.forEach(function(w){
-    var idx=cwRemain.indexOf(w);
-    if(idx!==-1){matched++;cwRemain.splice(idx,1)}
-  });
+  qw.forEach(function(w){var idx=cwRemain.indexOf(w);if(idx!==-1){matched++;cwRemain.splice(idx,1)}});
   var precision=matched/cw.length,recall=matched/qw.length;
-  var f1=precision+recall>0?2*precision*recall/(precision+recall):0;
-  // Penalize extreme length mismatch
-  var lenPenalty=Math.min(q.length,c.length)/Math.max(q.length,c.length);
-  if(lenPenalty<0.4)lenPenalty=lenPenalty*0.5; // harsh penalty for big length gaps
-  var score=(f1*75+lenPenalty*25)*100;
+  var wordF1=precision+recall>0?2*precision*recall/(precision+recall):0;
+
+  // 2. 词序相似度（最长公共子序列 / 最大长度）
+  var lcs=function(a,b){
+    var m=a.length,n=b.length,dp=[];
+    for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0}
+    for(var i=1;i<=m;i++)for(var j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]);
+    return dp[m][n];
+  };
+  var seqScore=lcs(qw,cw)/Math.max(qw.length,cw.length);
+
+  // 3. 综合：词匹配 40% + 词序 40% + 长度比 20%
+  var lenRatio=Math.min(q.length,c.length)/Math.max(q.length,c.length);
+  if(lenRatio<0.4)lenRatio*=0.5;
+  var score=(wordF1*40+seqScore*40+lenRatio*20)*100;
   return Math.min(Math.round(score*10)/10,99.9);
 }
 async function lookupDOI(title){
