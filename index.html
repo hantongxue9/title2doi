@@ -971,21 +971,12 @@ function renderResults(results){
 
   var h='<table><thead><tr><th>#</th><th>原始标题</th><th>DOI</th><th>匹配标题</th><th>置信</th><th>状态</th></tr></thead><tbody>';
   results.forEach(function(r,i){
-    // 显示分类：重试过的用原始分类，否则用实际分类
-    var displayConf=r._retried?r._origConf:r.confidence;
-    var displayFound=r._retried?r._origFound:r.is_found;
-    var confClass='';if(displayFound){if(displayConf>=90)confClass='high';else confClass='low'}else confClass='none';
-    var tag='';if(displayFound){if(displayConf>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
-    var cf=displayConf>0?Math.round(displayConf)+'%':'—';
+    var confClass='';if(r.is_found){if(r.confidence>=90)confClass='high';else confClass='low'}else confClass='none';
+    var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
+    var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
-    var statusCell='';
-    // 高置信度且非重试保留状态：纯 ✓
-    if(r.is_found&&r.confidence>=90&&!r._retried)statusCell='✓';
-    // 未找到：显示重试按钮
-    else if(!r.is_found)statusCell='<button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
-    // 低置信度或重试后仍低的：显示 ✓ + 重试按钮
-    else statusCell='✓ <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
-    h+='<tr data-conf="'+confClass+'" data-found="'+(displayFound?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
+    var statusCell=r.is_found&&r.confidence>=90?'✓':'<button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
+    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
   ST.resultFilter='all';
@@ -1024,12 +1015,10 @@ async function retrySingleQuery(idx,btn){
   if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
   if(btn){btn.textContent='...';btn.disabled=true}
   var r=await lookupDOI(old.query_title);
-  if(r.is_found&&r.confidence>=90){r._retried=false}
-  else{r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found}
   ST.results[idx]=r;
   renderResults(ST.results);
   if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
-  toast(r.is_found&&r.confidence>=90?'重试成功，已自动移入高置信度 ✓':(r.is_found?'重试完成，置信度仍偏低':'仍未找到'));
+  toast(r.is_found&&r.confidence>=90?'重试成功，已自动移入高置信度 ✓':(r.is_found?'重试完成':'仍未找到'));
 }
 async function batchRetry(filter){
   if(!ST.results)return;
@@ -1047,8 +1036,7 @@ async function batchRetry(filter){
     var row=document.querySelector('tr[data-row="'+idx+'"]');
     if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
     var r=await lookupDOI(old.query_title);
-    if(r.is_found&&r.confidence>=90){r._retried=false;promoted++}
-    else{r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found}
+    if(r.is_found&&r.confidence>=90)promoted++;
     ST.results[idx]=r;
     if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML=(r.is_found&&r.confidence>=90)?'✓':'<button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>'}
   }
