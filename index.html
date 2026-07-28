@@ -347,7 +347,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
     <button class="btn btn-4" onclick="goStep(2)">← 返回预览</button>
     <button class="btn btn-4" onclick="resetAll()">重新开始</button>
   </div>
-  <div class="filter-note mt-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>查询结果仅供参考。仅展示高置信度结果。低置信度及未找到条目请看上方表格，可点击统计卡片筛选后自行核实。</div>
+  <div class="filter-note mt-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>仅展示高置信度结果，查询结果仅供参考。低置信度及未找到条目请看上方表格，可点击统计卡片筛选后自行核实。</div>
   <div class="doi-out" id="doi-output"></div>
 </div></div></div>
 
@@ -924,7 +924,8 @@ function renderResults(results){
     var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
-    var statusCell=r.is_found?'✓':'<span class="t3">未找到</span> <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
+    var needRetry=!r.is_found||(r.is_found&&r.confidence<90);
+    var statusCell=(r.is_found?'✓':'<span class="t3">未找到</span>')+(needRetry?' <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>':'');
     h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
