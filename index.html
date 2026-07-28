@@ -340,7 +340,9 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
 <div class="pane" id="pane-3"><div class="card"><div class="card-inner">
   <div class="card-ttl">查询结果</div><p class="card-sub">DOI 已从 Crossref 数据库中检索，按置信度标注匹配质量</p>
   <div class="stats" id="stats-row"></div>
-  <div class="dn" id="batch-retry-wrap" style="margin-bottom:14px"><button class="btn btn-3 btn-sm" onclick="batchRetry(ST.resultFilter)">全部重试 <span id="batch-retry-label"></span>条目</button></div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+    <button class="btn btn-3 btn-sm dn" id="batch-retry-btn" onclick="onBatchAction()"></button>
+  </div>
   <div class="t-wrap" id="results-table"></div>
 
   <div class="card-ttl" style="margin-top:24px">导出结果 <span class="t3" style="font-weight:400;font-size:12px">（仅包含高置信度 ≥90%）</span></div>
@@ -946,6 +948,7 @@ function renderResults(results){
   // Only high-confidence DOIs in output
   var highDOIs=results.filter(function(r){return r.is_found&&r.confidence>=90}).map(function(r){return r.doi});
   $('doi-output').textContent=highDOIs.join('\n')||'';
+  setTimeout(updateBatchBtn,50);
 }
 
 function setFilter(f){
@@ -956,12 +959,41 @@ function setFilter(f){
     if(f==='all'){tr.style.display='';return}
     tr.style.display=tr.getAttribute('data-conf')===f?'':'none';
   });
-  // 显示/隐藏批量重试按钮
-  var batch=$('batch-retry-wrap');
-  if(batch){
-    if(f==='low'||f==='none'){batch.classList.remove('dn');$('batch-retry-label').textContent=f==='low'?'低置信度':'未找到'}
-    else batch.classList.add('dn');
+  updateBatchBtn();
+}
+
+function updateBatchBtn(){
+  var f=ST.resultFilter,btn=$('batch-retry-btn');
+  if(!btn)return;
+  if(f!=='low'&&f!=='none'){btn.classList.add('dn');return}
+  btn.classList.remove('dn');
+  // 检查是否有可移入的条目（重试过且查到DOI且原分类不是高）
+  var hasPromotable=ST.results&&ST.results.some(function(r){return r._retried&&r.is_found&&(!r._origFound||r._origConf<90)});
+  var label=f==='low'?'低置信度':'未找到';
+  if(hasPromotable){
+    btn.className='btn btn-2 btn-sm'; // green success style
+    btn.textContent='✓ 全部移入高置信度';
+    btn.onclick=function(){batchPromote(f)};
+  }else{
+    btn.className='btn btn-3 btn-sm'; // outline style
+    btn.textContent='全部重试 '+label+'条目';
+    btn.onclick=function(){batchRetry(f)};
   }
+}
+function batchPromote(filter){
+  if(!ST.results)return;
+  var count=0;
+  ST.results.forEach(function(r){
+    var cls=r.is_found?(r.confidence>=90?'high':'low'):'none';
+    if(cls===filter&&r._retried&&r.is_found){r.confidence=91;r.confidence_level='高';r.is_found=true;r._retried=false;r._origConf=null;r._origFound=null;count++}
+  });
+  renderResults(ST.results);
+  if(ST.resultFilter)setFilter(ST.resultFilter);
+  toast('已移入 '+count+' 条至高置信度 ✓');
+}
+
+async function onBatchAction(){
+  // Legacy hook — calls updateBatchBtn which sets the correct handler
 }
 
 async function retrySingleQuery(idx,btn){
@@ -1009,6 +1041,7 @@ async function batchRetry(filter){
   }
   renderResults(ST.results);
   if(ST.resultFilter)setFilter(ST.resultFilter);
+  updateBatchBtn();
   toast('批量重试完成，共 '+targets.length+' 条');
 }
 
