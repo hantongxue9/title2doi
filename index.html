@@ -187,6 +187,16 @@
   .stc.filter-on{box-shadow:0 0 0 2px var(--brand-500);border-color:var(--brand-500)}
   .stc{cursor:pointer;user-select:none}
 
+  /* help button & dropdown */
+  .help-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);background:transparent;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .2s;line-height:1}
+  .help-btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.6);color:#fff}
+  .help-drop{position:fixed;top:64px;right:24px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:20px 22px;width:320px;display:none;animation:paneIn .2s ease}
+  .help-drop.open{display:block}
+  .help-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+  .help-item{font-size:13px;color:var(--text-2);line-height:1.65;padding:8px 0;border-bottom:1px solid var(--border)}
+  .help-item b{color:var(--text);font-weight:600}
+  @media(max-width:500px){.help-drop{right:8px;width:calc(100vw - 16px);max-width:340px}}
+
   .tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;letter-spacing:.1px}
   .tag-hi{background:var(--green-50);color:var(--green-700)}.tag-md{background:var(--amber-50);color:var(--amber-600)}
   .tag-lo{background:var(--red-50);color:var(--red-600)}.tag-no{background:var(--bg);color:var(--text-3)}
@@ -214,8 +224,20 @@
     <span>title2doi</span>
     <span class="topbar-sub">· 查收查引辅助工具</span>
   </div>
-  <span class="topbar-sub">中国科学技术大学图书馆</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button class="help-btn" id="help-btn" onclick="toggleHelp()" title="使用说明">?</button>
+    <span class="topbar-sub">中国科学技术大学图书馆</span>
+  </div>
 </header>
+
+<!-- Help dropdown -->
+<div class="help-drop" id="help-drop">
+  <div class="help-title">使用说明</div>
+  <div class="help-item"><b>智能解析 (AI)</b><br>粘贴含作者、期刊、年份的引用文本，AI 自动提取标题。适合杂乱格式。</div>
+  <div class="help-item"><b>基础解析</b><br>每行一个标题的规范文本。也支持上传 Word/Excel 文件（自动识别标题列）。</div>
+  <div class="help-item"><b>置信度</b><br>≥90% 高置信度，可直接使用。<br>&lt;90% 低置信度，建议人工核实。</div>
+  <div class="help-item" style="border-bottom:none"><b>未配置 API Key？</b><br>使用「基础解析」即可，DOI 查询不依赖 AI。</div>
+</div>
 
 <div class="main">
 
@@ -361,6 +383,16 @@ function goStep(n){
    Settings
    ═══════════════════════════════════════════════════════════ */
 function toggleSettings(){$('set-panel').classList.toggle('open')}
+function toggleHelp(){
+  var d=$('help-drop');d.classList.toggle('open');
+  if(d.classList.contains('open')){
+    setTimeout(function(){document.addEventListener('click',closeHelpOutside)},10);
+  }
+}
+function closeHelpOutside(e){
+  var d=$('help-drop'),b=$('help-btn');
+  if(!d.contains(e.target)&&e.target!==b){d.classList.remove('open');document.removeEventListener('click',closeHelpOutside)}
+}
 function loadSettings(){
   // 不预填值——用户无感知使用注入的默认配置
   // 只在用户主动打开高级设置时才显示他们之前保存的值
