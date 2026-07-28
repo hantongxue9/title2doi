@@ -481,18 +481,53 @@ function stopParseAnim(){if(ST.animId){clearInterval(ST.animId);ST.animId=null}}
 /* ═══════════════════════════════════════════════════════════
    Title Parsing (regex, client-side)
    ═══════════════════════════════════════════════════════════ */
-var SKIP=['references','参考文献','附录','appendix','致谢','acknowledgments','acknowledgements'];
+// 非标题标签：段首标记、分类标签、纯粹的元信息行
+var SKIP=['references','参考文献','附录','appendix','致谢','acknowledgments','acknowledgements',
+  '代表性论文','代表论文','代表性成果','论文成果','科研成果','发表论文','学术论文',
+  '论文清单','成果清单','论文列表','project','publication','publications'];
+// 标题前缀（需剥离）
+var PREFIX_PATTERNS=['论文成果：','科研成果：','题目：','标题：','篇名：','论文题目：',
+  '成果名称：','title:','论文名称：','著作名称：'];
+// 作者标记后缀（需剥离）
+var SUFFIX_RE=/\s*[（(]?(第一作者|通讯作者|通信作者|first author|corresponding author)[：:]\s*\S+[）)]?\s*$/i;
+
+function isSectionLabel(text){
+  // 检测 "代表性论文1", "论文成果：", "科研成果3" 等纯段首标签
+  var t=text.trim();
+  // "代表性论文1", "论文成果" 等短标签
+  if(/^(代表性论文|代表论文|代表性成果|论文成果|科研成果|发表论文|学术论文|论文清单|成果清单|论文列表)\s*\d*$/.test(t))return true;
+  // 纯标点+数字+标签的组合如 "一、" "（一）" 且很短
+  if(t.length<8&&/^[\(（]?[一二三四五六七八九十\d]+[\)）]?[、，。.\s]*$/.test(t))return true;
+  return false;
+}
+
 function isTitle(text){
   text=text.trim();if(!text||text.length<5||text.length>600)return false;
   if(/^[\d\s.\-—、,，;；:：（）()\[\]{}#*]+$/.test(text))return false;
+  if(isSectionLabel(text))return false;
   var tl=text.toLowerCase().replace(/\s/g,'');
   for(var i=0;i<SKIP.length;i++){if(tl.indexOf(SKIP[i].replace(/\s/g,'').toLowerCase())!==-1)return false}
   return true;
 }
+
 function cleanTitle(text){
-  text=text.trim().replace(/^[\s]*[\[\(\（]?\d+[\]\)\）]?[.\s、,，\t]+/,'').replace(/\s+/g,' ').trim();
-  return text.replace(/^["'""''「」『』-]+/,'').replace(/["'""''「」『』-]+$/,'');
+  text=text.trim();
+  // 剥离已知前缀
+  for(var i=0;i<PREFIX_PATTERNS.length;i++){
+    var p=PREFIX_PATTERNS[i];
+    if(text.indexOf(p)===0){text=text.substring(p.length);break}
+  }
+  // 剥离第一作者/通讯作者后缀
+  text=text.replace(SUFFIX_RE,'');
+  // 剥离行首编号
+  text=text.replace(/^[\s]*[\[\(\（]?\d+[\]\)\）]?[.\s、,，\t]+/,'').replace(/\s+/g,' ').trim();
+  // 剥离首尾引号
+  return text.replace(/^["'""''「」『』-]+/,'').replace(/["'""''「」『』-]+$/,'').trim();
 }
+
+// 同步更新 groupEntries 中的 skip 逻辑
+var _skipSet={};
+SKIP.forEach(function(s){_skipSet[s.replace(/\s/g,'').toLowerCase()]=1});
 function parseText(raw){
   var lines=raw.split('\n'),titles=[],seen={};
   for(var i=0;i<lines.length;i++){var c=cleanTitle(lines[i]);if(!isTitle(c))continue;var n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}
@@ -527,14 +562,10 @@ function groupEntries(rawText){
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim();
     if (!line) continue;
-    // Skip obvious non-citation lines
+    // 跳过段首标签和明显非标题行
+    if (isSectionLabel(line)) continue;
     var tl = line.toLowerCase().replace(/\s/g, '');
-    var isSkip = false;
-    for (var s = 0; s < SKIP.length; s++) {
-      if (tl.indexOf(SKIP[s].replace(/\s/g, '').toLowerCase()) !== -1) { isSkip = true; break; }
-    }
-    if (isSkip) continue;
-    // Skip lines that are just numbers or punctuation
+    if (_skipSet[tl]) continue;
     if (/^[\d\s.\-—、,，;；:：]+$/.test(line)) continue;
 
     // Merge: if this line is very short (< 10 chars), merge with the last entry
