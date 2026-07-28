@@ -586,32 +586,28 @@ async function llmParse(text, apiBase, apiKey, model){
 /* ═══════════════════════════════════════════════════════════
    File Parser
    ═══════════════════════════════════════════════════════════ */
-async function parseFile(file){
+async function extractTextFromFile(file){
+  // 从文件中提取纯文本，不做标题解析（解析由后续管道统一处理）
   var ext=file.name.split('.').pop().toLowerCase();
-  if(ext==='txt')return parseText(await file.text());
+  if(ext==='txt')return await file.text();
   if(ext==='docx'){
-    if(typeof mammoth==='undefined')throw new Error('Word 解析组件未加载，请检查网络后刷新页面。或将内容复制粘贴到「粘贴文本」标签页。');
-    var arr=await file.arrayBuffer(),result=await mammoth.extractRawText({arrayBuffer:arr});return parseText(result.value);
+    if(typeof mammoth==='undefined')throw new Error('Word 解析组件未加载，请刷新页面后重试。');
+    var arr=await file.arrayBuffer(),result=await mammoth.extractRawText({arrayBuffer:arr});
+    return result.value;
   }
   if(ext==='xlsx'||ext==='xls'){
-    if(typeof XLSX==='undefined')throw new Error('Excel 解析组件未加载，请检查网络后刷新页面。或将内容复制粘贴到「粘贴文本」标签页。');
-    var arr=await file.arrayBuffer(),wb=XLSX.read(arr,{type:'array'}),titles=[],seen={};
+    if(typeof XLSX==='undefined')throw new Error('Excel 解析组件未加载，请刷新页面后重试。');
+    var arr=await file.arrayBuffer(),wb=XLSX.read(arr,{type:'array'}),lines=[];
     wb.SheetNames.forEach(function(name){
       var sheet=wb.Sheets[name],data=XLSX.utils.sheet_to_json(sheet,{header:1});if(!data.length)return;
-      var titleCol=findTitleCol(data),startRow=(titleCol!==null?1:0);
-      for(var i=startRow;i<data.length;i++){
+      var titleCol=findTitleCol(data);
+      for(var i=(titleCol!==null?1:0);i<data.length;i++){
         var row=data[i];
-        if(titleCol!==null&&titleCol<row.length){
-          var t=String(row[titleCol]||'').trim();
-          if(t&&isTitle(t)){var c=cleanTitle(t),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}
-        }else if(titleCol===null){
-          for(var j=0;j<row.length;j++){
-            var cell=String(row[j]||'').trim();
-            if(isTitle(cell)){var c=cleanTitle(cell),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}
-          }
-        }
+        if(titleCol!==null&&titleCol<row.length){var t=String(row[titleCol]||'').trim();if(t)lines.push(t)}
+        else if(titleCol===null){for(var j=0;j<row.length;j++){var c=String(row[j]||'').trim();if(c)lines.push(c)}}
       }
-    });return titles;
+    });
+    return lines.join('\n');
   }
   throw new Error('不支持的文件格式: .'+ext+'。支持 .docx / .xlsx / .xls / .txt');
 }
@@ -678,10 +674,33 @@ async function doParse(){
 
   if(isFile){
     var fi=$('file-input');if(!fi.files.length){setMsg('parse-msg','err','请先选择文件');return}
-    btn.disabled=true;btn.innerHTML='<span class="spin"></span>解析文件中...';
-    startProgress('parse-prog','parse-bar-fill','parse-status-text');updateProgress('parse-bar-fill','parse-status-text',30,'正在读取文件...');
-    try{var titles=await parseFile(fi.files[0]);updateProgress('parse-bar-fill','parse-status-text',100,'解析完成');if(titles.length)showPreview(titles,'文件解析');else setMsg('parse-msg','err','未能从文件中解析出标题')}
-    catch(e){setMsg('parse-msg','err',e.message)}
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span>读取文件中...';
+    startProgress('parse-prog','parse-bar-fill','parse-status-text');updateProgress('parse-bar-fill','parse-status-text',20,'正在读取文件...');
+    try{
+      // 提取原始文本
+      var rawText=await extractTextFromFile(fi.files[0]);
+      updateProgress('parse-bar-fill','parse-status-text',40,'文本提取完成');
+      // 路由：走和粘贴文本一样的智能检测+LLM管道
+      if(isLLM && isCleanTitles(rawText)){
+        var titles=parseText(rawText);
+        updateProgress('parse-bar-fill','parse-status-text',100,'解析完成（检测到干净标题，跳过AI）');
+        if(titles.length)showPreview(titles,'文件→智能检测：已是干净标题');else setMsg('parse-msg','err','未能解析出标题')
+      }else if(isLLM){
+        updateProgress('parse-bar-fill','parse-status-text',50,'正在调用 AI...');
+        var cfg=getConfig();
+        if(!cfg.apiKey){stopProgress('parse-prog','parse-bar-fill');btn.disabled=false;btn.innerHTML='解析标题';setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写。');return}
+        startParseAnim('parse-status-text');
+        try{
+          var titles=await llmParse(rawText,cfg.apiBase,cfg.apiKey,cfg.model);
+          stopParseAnim();updateProgress('parse-bar-fill','parse-status-text',100,'解析完成');
+          showPreview(titles,'文件→AI 智能解析');
+        }catch(e2){stopParseAnim();throw e2}
+      }else{
+        var titles=parseText(rawText);
+        updateProgress('parse-bar-fill','parse-status-text',100,'解析完成');
+        if(titles.length)showPreview(titles,'文件→基础规则解析');else setMsg('parse-msg','err','未能解析出标题')
+      }
+    }catch(e){setMsg('parse-msg','err',e.message)}
     finally{stopProgress('parse-prog','parse-bar-fill');btn.disabled=false;btn.innerHTML='解析标题'}
     return;
   }
@@ -782,14 +801,14 @@ async function doLookup(){
    ═══════════════════════════════════════════════════════════ */
 function renderResults(results){
   ST.results=results;
-  var total=results.length,found=0,high=0,mid=0,low=0;
-  results.forEach(function(r){if(r.is_found){found++;if(r.confidence>=90)high++;else if(r.confidence>=70)mid++;else low++}});
+  var total=results.length,high=0,mid=0,low=0,notFound=0;
+  results.forEach(function(r){if(!r.is_found){notFound++}else if(r.confidence>=90){high++}else if(r.confidence>=70){mid++}else{low++}});
   $('stats-row').innerHTML=
     '<div class="stc accent filter-on" data-filter="all" onclick="setFilter(\'all\')"><div class="n">'+total+'</div><div class="l">总计</div></div>'+
-    '<div class="stc g" data-filter="found" onclick="setFilter(\'found\')"><div class="n">'+found+'</div><div class="l">找到 DOI</div></div>'+
     '<div class="stc g" data-filter="high" onclick="setFilter(\'high\')"><div class="n">'+high+'</div><div class="l">高置信度</div></div>'+
     '<div class="stc y" data-filter="mid" onclick="setFilter(\'mid\')"><div class="n">'+mid+'</div><div class="l">中置信度</div></div>'+
-    '<div class="stc r" data-filter="low" onclick="setFilter(\'low\')"><div class="n">'+low+'</div><div class="l">低置信度</div></div>';
+    '<div class="stc r" data-filter="low" onclick="setFilter(\'low\')"><div class="n">'+low+'</div><div class="l">低置信度</div></div>'+
+    '<div class="stc" data-filter="none" onclick="setFilter(\'none\')" style="border-left:3px solid var(--text-3)"><div class="n" style="color:var(--text-3)">'+notFound+'</div><div class="l">未找到</div></div>';
 
   var h='<table><thead><tr><th>#</th><th>原始标题</th><th>DOI</th><th>匹配标题</th><th>置信</th><th>状态</th></tr></thead><tbody>';
   results.forEach(function(r,i){
@@ -809,13 +828,10 @@ function renderResults(results){
 
 function setFilter(f){
   ST.resultFilter=f;
-  // Update stat card active states
   document.querySelectorAll('.stc').forEach(function(el){el.classList.toggle('filter-on',el.getAttribute('data-filter')===f)});
-  // Filter table rows
   var rows=document.querySelectorAll('#results-table tbody tr');
   rows.forEach(function(tr){
     if(f==='all'){tr.style.display='';return}
-    if(f==='found'){tr.style.display=tr.getAttribute('data-found')==='1'?'':'none';return}
     tr.style.display=tr.getAttribute('data-conf')===f?'':'none';
   });
 }
