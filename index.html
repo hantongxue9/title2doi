@@ -142,10 +142,10 @@
   /* stats */
   .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:22px}
   @media(max-width:600px){.stats{grid-template-columns:repeat(3,1fr)}}
-  .stc{background:var(--bg);border-radius:var(--radius-sm);padding:16px 12px;text-align:center;border:1px solid var(--border);transition:all .2s}
+  .stc{background:var(--bg);border-radius:var(--radius-sm);padding:18px 12px 16px;text-align:center;border:1px solid var(--border);transition:all .2s;display:flex;flex-direction:column;justify-content:center;min-height:80px}
   .stc:hover{box-shadow:var(--shadow-xs);border-color:var(--border-hv)}
   .stc .n{font-size:24px;font-weight:700;color:var(--text);line-height:1.2}
-  .stc .l{font-size:11px;color:var(--text-3);margin-top:3px;font-weight:500}
+  .stc .l{font-size:11px;color:var(--text-3);margin-top:4px;font-weight:500}
   .stc.g .n{color:var(--green-600)}.stc.y .n{color:var(--amber-600)}.stc.r .n{color:var(--red-600)}
   .stc.accent{border-left:3px solid var(--brand-500)}
 
@@ -226,7 +226,7 @@
   </div>
   <div style="display:flex;align-items:center;gap:12px">
     <button class="help-btn" id="help-btn" onclick="toggleHelp()" title="使用说明"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
-    <span class="topbar-sub">USTC Lib · Han</span>
+    <span class="topbar-sub">USTC · Lib</span>
   </div>
 </header>
 
@@ -335,7 +335,10 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
   <div class="doi-out" id="doi-output"></div>
 </div></div></div>
 
-<div class="foot"><span>title2doi · USTC Lib · Han · Crossref API</span></div>
+<div class="foot">
+  <div>title2doi · Crossref · DeepSeek</div>
+  <div style="margin-top:4px">USTC Lib · Han</div>
+</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -387,13 +390,15 @@ function toggleSettings(){$('set-panel').classList.toggle('open')}
 function toggleHelp(){
   var d=$('help-drop');d.classList.toggle('open');
   if(d.classList.contains('open')){
-    setTimeout(function(){document.addEventListener('click',closeHelpOutside)},10);
+    setTimeout(function(){document.addEventListener('click',closeHelpOutside);window.addEventListener('scroll',closeHelpOnScroll)},10);
   }
 }
 function closeHelpOutside(e){
   var d=$('help-drop'),b=$('help-btn');
-  if(!d.contains(e.target)&&e.target!==b){d.classList.remove('open');document.removeEventListener('click',closeHelpOutside)}
+  if(!d.contains(e.target)&&e.target!==b){closeHelpNow()}
 }
+function closeHelpOnScroll(){closeHelpNow()}
+function closeHelpNow(){$('help-drop').classList.remove('open');document.removeEventListener('click',closeHelpOutside);window.removeEventListener('scroll',closeHelpOnScroll)}
 function loadSettings(){
   // 不预填值——用户无感知使用注入的默认配置
   // 只在用户主动打开高级设置时才显示他们之前保存的值
