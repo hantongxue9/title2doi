@@ -4,18 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>title2doi — 标题DOI批量检索</title>
-
-<!-- CDN: SheetJS (Excel import/export) & Mammoth.js (Word import) -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
-<!-- 部署时由 GitHub Actions 从 Secrets 注入 -->
 <script src="config.js"></script>
-
 <style>
   :root {
     --bg:#f1f5f9;--surface:#fff;--border:#e2e8f0;--border-hv:#cbd5e1;
     --brand-50:#eff6ff;--brand-100:#dbeafe;--brand-200:#bfdbfe;
-    --brand-500:#3b82f6;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;--brand-900:#1e3a8a;
+    --brand-500:#3b82f6;--brand-600:#2563eb;--brand-700:#1d4ed8;--brand-800:#1e40af;
     --text:#1e293b;--text-2:#475569;--text-3:#94a3b8;
     --green-50:#ecfdf5;--green-500:#10b981;--green-600:#059669;--green-700:#047857;
     --amber-50:#fffbeb;--amber-500:#f59e0b;--amber-600:#d97706;
@@ -28,8 +24,12 @@
     --mono:"SF Mono","Cascadia Code","JetBrains Mono","Consolas",monospace;
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  body{
+    font-family:var(--font);color:var(--text);line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background:var(--bg);
+    background-image:radial-gradient(circle at 20% 10%,rgba(37,99,235,.03) 0%,transparent 60%),radial-gradient(circle at 80% 90%,rgba(37,99,235,.02) 0%,transparent 50%);
+  }
 
   .topbar{background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 40%,#1d4ed8 100%);color:#fff;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(15,23,42,.25)}
   .topbar-brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;letter-spacing:-.2px}
@@ -38,9 +38,11 @@
 
   .main{max-width:920px;margin:0 auto;padding:28px 20px 60px}
 
+  /* stepper */
   .stepper{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:28px;padding:20px;background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-xs);border:1px solid var(--border)}
   .st-node{display:flex;align-items:center;gap:10px;cursor:default;transition:all .25s}
   .st-node.clickable{cursor:pointer}
+  .st-node.clickable:hover .st-dot{transform:scale(1.08)}
   .st-dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;transition:all .35s cubic-bezier(.4,0,.2,1);background:var(--border);color:var(--text-3)}
   .st-info{display:flex;flex-direction:column}
   .st-num{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);transition:color .25s}
@@ -54,21 +56,25 @@
   .st-line.done{background:var(--green-500)}
   @media(max-width:540px){.st-line{width:24px;margin:0 4px}.st-node{gap:6px}.st-dot{width:28px;height:28px;font-size:11px}.st-title{font-size:11px}}
 
+  /* panes */
   .pane{display:none;animation:paneIn .3s ease}
   .pane.on{display:block}
   @keyframes paneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-  .card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden}
+  .card{background:var(--surface);border-radius:var(--radius-lg);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden;transition:box-shadow .3s}
+  .card:hover{box-shadow:var(--shadow)}
   .card-inner{padding:28px 32px 32px}
   @media(max-width:640px){.card-inner{padding:20px 18px 24px}}
   .card-ttl{font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px}
   .card-sub{font-size:13px;color:var(--text-2);margin-bottom:20px}
 
+  /* tabs */
   .tabs{display:flex;gap:0;margin-bottom:20px;background:var(--bg);border-radius:var(--radius-sm);padding:4px}
   .tab{flex:1;padding:9px 16px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:var(--text-2);border-radius:6px;transition:all .2s;font-family:var(--font);display:flex;align-items:center;justify-content:center;gap:6px}
   .tab.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-xs)}
   .tab-pane{display:none}.tab-pane.on{display:block}
 
+  /* form */
   textarea,input[type=text],input[type=password]{width:100%;padding:11px 15px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:var(--font);line-height:1.65;color:var(--text);background:var(--surface);transition:border-color .2s,box-shadow .2s}
   textarea:focus,input:focus{outline:none;border-color:var(--brand-500);box-shadow:0 0 0 3px rgba(59,130,246,.12)}
   textarea{resize:vertical;min-height:180px}
@@ -83,12 +89,14 @@
   .dropzone .dz-f{margin-top:10px;font-size:13px;font-weight:600;color:var(--brand-600)}
   .dropzone input[type=file]{display:none}
 
+  /* engine */
   .eng-row{display:flex;align-items:center;gap:14px;margin:18px 0;flex-wrap:wrap}
   .eng{display:flex;gap:0;background:var(--bg);border-radius:var(--radius-sm);padding:4px;border:1px solid var(--border)}
   .eng-opt{padding:7px 16px;border:none;background:transparent;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--text-2);border-radius:6px;transition:all .2s;font-family:var(--font);white-space:nowrap}
   .eng-opt.on{background:var(--surface);color:var(--brand-700);box-shadow:var(--shadow-xs);font-weight:600}
   .eng-tip{font-size:12px;color:var(--text-3)}
 
+  /* settings */
   .set-trigger{font-size:12.5px;font-weight:500;color:var(--text-2);cursor:pointer;background:none;border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-family:var(--font);transition:all .2s;display:flex;align-items:center;gap:6px}
   .set-trigger:hover{background:var(--brand-50);border-color:var(--brand-200);color:var(--brand-700)}
   .set-trigger.has-val{background:var(--brand-50);border-color:var(--brand-200);color:var(--brand-700);font-weight:600}
@@ -100,6 +108,7 @@
   .fl{font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:4px;display:block}
   .fl .opt{font-weight:400;color:var(--text-3)}
 
+  /* buttons */
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 22px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:var(--font);white-space:nowrap;letter-spacing:.1px}
   .btn:disabled{opacity:.4;cursor:not-allowed;filter:grayscale(15%)}
   .btn:active:not(:disabled){transform:scale(.98)}
@@ -109,22 +118,38 @@
   .btn-4{background:transparent;color:var(--text-3)}.btn-4:hover:not(:disabled){background:var(--bg);color:var(--text-2)}
   .btn-lg{padding:12px 28px;font-size:15px}.btn-sm{padding:6px 14px;font-size:12px;border-radius:6px}
   .btn-block{width:100%}
-  .btn-row{display:flex;gap:10px;flex-wrap:wrap}.btn-row.btns{margin-top:20px}.btn-row.split{justify-content:space-between}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap}.btn-row.btns{margin-top:20px}.btn-row.split{justify-content:space-between;align-items:center}
 
+  /* progress bar */
+  .prog-wrap{margin-top:14px;display:none}
+  .prog-wrap.on{display:block}
+  .prog-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px}
+  .prog-fill{height:100%;background:linear-gradient(90deg,var(--brand-500),var(--brand-600));border-radius:3px;width:0%;transition:width .3s}
+  .prog-text{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-2)}
+  .prog-status{display:flex;align-items:center;gap:8px}
+  .typing-dots{display:inline-flex;gap:3px}
+  .typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--brand-500);animation:dotBounce 1.2s infinite ease-in-out}
+  .typing-dots span:nth-child(2){animation-delay:.2s}.typing-dots span:nth-child(3){animation-delay:.4s}
+  @keyframes dotBounce{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
+
+  /* messages */
   .msg{padding:11px 16px;border-radius:var(--radius-sm);font-size:13px;margin-top:14px;display:none;line-height:1.5}
   .msg.on{display:block;animation:paneIn .2s ease}
   .msg-err{background:var(--red-50);color:var(--red-600);border:1px solid #fecaca}
   .msg-ok{background:var(--green-50);color:var(--green-700);border:1px solid #a7f3d0}
   .msg-inf{background:var(--brand-50);color:var(--brand-700);border:1px solid #bfdbfe}
 
+  /* stats */
   .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:22px}
   @media(max-width:600px){.stats{grid-template-columns:repeat(3,1fr)}}
-  .stc{background:var(--bg);border-radius:var(--radius-sm);padding:16px 12px;text-align:center;border:1px solid var(--border);transition:box-shadow .2s}
-  .stc:hover{box-shadow:var(--shadow-xs)}
+  .stc{background:var(--bg);border-radius:var(--radius-sm);padding:16px 12px;text-align:center;border:1px solid var(--border);transition:all .2s}
+  .stc:hover{box-shadow:var(--shadow-xs);border-color:var(--border-hv)}
   .stc .n{font-size:24px;font-weight:700;color:var(--text);line-height:1.2}
   .stc .l{font-size:11px;color:var(--text-3);margin-top:3px;font-weight:500}
   .stc.g .n{color:var(--green-600)}.stc.y .n{color:var(--amber-600)}.stc.r .n{color:var(--red-600)}
+  .stc.accent{border-left:3px solid var(--brand-500)}
 
+  /* table */
   .t-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:18px}
   table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:700px}
   th{background:var(--bg);padding:11px 14px;text-align:left;font-weight:600;color:var(--text-2);font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--border);white-space:nowrap}
@@ -136,13 +161,16 @@
   .ct{max-width:230px;word-break:break-word;line-height:1.55}
   .cd{font-family:var(--mono);font-size:12px;word-break:break-all}
   .cd a{font-weight:500;color:var(--brand-700)}.cd a:hover{color:var(--brand-500)}
+  /* filter note */
+  .filter-note{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);margin-top:8px}
+  .filter-note svg{flex-shrink:0;opacity:.6}
 
   .tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;letter-spacing:.1px}
   .tag-hi{background:var(--green-50);color:var(--green-700)}.tag-md{background:var(--amber-50);color:var(--amber-600)}
   .tag-lo{background:var(--red-50);color:var(--red-600)}.tag-no{background:var(--bg);color:var(--text-3)}
 
   .doi-out{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;font-family:var(--mono);font-size:12.5px;max-height:240px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;user-select:all;line-height:1.9;margin-top:14px;color:var(--text-2)}
-  .doi-out:empty::after{content:'（无匹配结果）';color:var(--text-3)}
+  .doi-out:empty::after{content:'（无高置信度匹配结果）';color:var(--text-3)}
 
   .toast{position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:999;background:var(--text);color:#fff;padding:10px 24px;border-radius:24px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.15)}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
@@ -181,7 +209,7 @@
 <div class="pane on" id="pane-1"><div class="card"><div class="card-inner">
   <div class="row-sb" style="align-items:center;margin-bottom:4px">
     <div><div class="card-ttl">输入文章标题</div><p class="card-sub" style="margin-bottom:0">粘贴文本或上传文件，AI 将自动识别并提取标题</p></div>
-    <button class="set-trigger" id="set-btn" onclick="toggleSettings()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>高级设置</button>
+    <button class="set-trigger" id="set-btn" onclick="toggleSettings()" title="配置 API Key 和模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>高级设置</button>
   </div>
 
   <div class="set-panel" id="set-panel">
@@ -222,6 +250,10 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
   </div>
 
   <button class="btn btn-1 btn-lg btn-block" id="btn-parse" onclick="doParse()">解析标题</button>
+  <div class="prog-wrap" id="parse-prog">
+    <div class="prog-text"><span class="prog-status"><span class="spin"></span><span id="parse-status-text">正在分析文本...</span></span><span class="typing-dots"><span></span><span></span><span></span></span></div>
+    <div class="prog-bar"><div class="prog-fill" id="parse-bar-fill" style="width:0%"></div></div>
+  </div>
   <div class="msg" id="parse-msg"></div>
 </div></div></div>
 
@@ -229,7 +261,14 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
 <div class="pane" id="pane-2"><div class="card"><div class="card-inner">
   <div class="row-sb" style="align-items:center"><div><div class="card-ttl">确认标题</div><p class="card-sub" style="margin-bottom:0">以下为解析结果，可在查询前增删修改。每行一个标题。</p></div><span class="t3" id="title-count" style="font-size:12.5px"></span></div>
   <textarea id="preview-text" style="min-height:200px;margin-top:16px"></textarea>
-  <div class="btn-row split btns"><button class="btn btn-4" onclick="goStep(1)">← 返回修改</button><button class="btn btn-2 btn-lg" id="btn-lookup" onclick="doLookup()">批量查询 DOI →</button></div>
+  <div class="btn-row split btns">
+    <button class="btn btn-4" onclick="goStep(1)">← 返回修改</button>
+    <button class="btn btn-2 btn-lg" id="btn-lookup" onclick="doLookup()">批量查询 DOI →</button>
+  </div>
+  <div class="prog-wrap" id="lookup-prog">
+    <div class="prog-text"><span class="prog-status"><span class="spin"></span><span id="lookup-status-text">正在查询...</span></span><span id="lookup-count-text" class="t3" style="font-size:12px">0/0</span></div>
+    <div class="prog-bar"><div class="prog-fill" id="lookup-bar-fill" style="width:0%"></div></div>
+  </div>
   <div class="msg" id="lookup-msg"></div>
 </div></div></div>
 
@@ -238,36 +277,39 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
   <div class="card-ttl">查询结果</div><p class="card-sub">DOI 已从 Crossref 数据库中检索，按置信度标注匹配质量</p>
   <div class="stats" id="stats-row"></div>
   <div class="t-wrap" id="results-table"></div>
-  <div class="card-ttl" style="margin-top:24px">导出结果</div>
-  <div class="btn-row btns"><button class="btn btn-3" onclick="copyDOI()">复制全部 DOI</button><button class="btn btn-3" id="btn-export" onclick="exportExcel()">下载 Excel</button><button class="btn btn-4" onclick="resetAll()">重新开始</button></div>
+
+  <div class="card-ttl" style="margin-top:24px">导出结果 <span class="t3" style="font-weight:400;font-size:12px">（仅包含高置信度 ≥90%）</span></div>
+  <div class="btn-row btns">
+    <button class="btn btn-3" onclick="copyDOI()">复制全部 DOI</button>
+    <button class="btn btn-3" id="btn-export" onclick="exportExcel()">下载 Excel</button>
+    <button class="btn btn-4" onclick="goStep(2)">← 返回预览</button>
+    <button class="btn btn-4" onclick="resetAll()">重新开始</button>
+  </div>
+  <div class="filter-note mt-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>仅展示高置信度结果。中低置信度结果请看上方表格。</div>
   <div class="doi-out" id="doi-output"></div>
 </div></div></div>
 
-<div class="foot"><span>title2doi v3 · 中国科学技术大学图书馆 · Crossref API</span></div>
+<div class="foot"><span>title2doi · 中国科学技术大学图书馆 · Crossref API</span></div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 /* ═══════════════════════════════════════════════════════════
-   Config — 三层：服务器注入 > localStorage > 硬编码默认
+   Config
    ═══════════════════════════════════════════════════════════ */
-var DEFAULTS = {apiBase:'https://api.deepseek.com/v1/chat/completions',apiKey:'',model:'deepseek-chat'};
-var INJECTED = (typeof window.T2D_CONFIG!=='undefined') ? window.T2D_CONFIG : {};
+var DEFAULTS={apiBase:'https://api.deepseek.com/v1/chat/completions',apiKey:'',model:'deepseek-chat'};
+var INJECTED=(typeof window.T2D_CONFIG!=='undefined')?window.T2D_CONFIG:{};
 function getConfig(){
   var s={};
   try{s=JSON.parse(localStorage.getItem('t2d_cfg')||'{}')}catch(e){}
-  return {
-    apiBase: s.apiBase || INJECTED.apiBase || DEFAULTS.apiBase,
-    apiKey: s.apiKey || INJECTED.apiKey || DEFAULTS.apiKey,
-    model: s.model || INJECTED.model || DEFAULTS.model
-  };
+  return {apiBase:s.apiBase||INJECTED.apiBase||DEFAULTS.apiBase,apiKey:s.apiKey||INJECTED.apiKey||DEFAULTS.apiKey,model:s.model||INJECTED.model||DEFAULTS.model};
 }
 
 /* ═══════════════════════════════════════════════════════════
    State
    ═══════════════════════════════════════════════════════════ */
-var ST={engine:'smart',tab:'text',step:1,results:null};
+var ST={engine:'smart',tab:'text',step:1,results:null,animId:null};
 
 /* helpers */
 function $(id){return document.getElementById(id)}
@@ -275,6 +317,7 @@ function toast(m){var t=$('toast');t.textContent=m;t.classList.add('show');clear
 function setMsg(id,type,text){var e=$(id);e.className='msg msg-'+type+' on';e.textContent=text}
 function clearMsg(id){var e=$(id);e.className='msg';e.textContent=''}
 function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
 /* ═══════════════════════════════════════════════════════════
    Step Navigation
@@ -292,7 +335,7 @@ function goStep(n){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Settings Panel
+   Settings
    ═══════════════════════════════════════════════════════════ */
 function toggleSettings(){$('set-panel').classList.toggle('open')}
 function loadSettings(){
@@ -306,13 +349,8 @@ function saveSettings(){
   localStorage.setItem('t2d_cfg',JSON.stringify({apiBase:$('cfg-api-base').value.trim(),apiKey:$('cfg-api-key').value.trim(),model:$('cfg-model').value.trim()}));
   $('set-panel').classList.remove('open');updateSetBtn();toast('设置已保存');
 }
-function resetSettings(){
-  $('cfg-api-base').value='';$('cfg-api-key').value='';$('cfg-model').value='';
-  localStorage.removeItem('t2d_cfg');updateSetBtn();toast('已清除自定义设置');
-}
-function updateSetBtn(){
-  var c=getConfig(),has=!!(c.apiKey);$('set-btn').classList.toggle('has-val',has);
-}
+function resetSettings(){$('cfg-api-base').value='';$('cfg-api-key').value='';$('cfg-model').value='';localStorage.removeItem('t2d_cfg');updateSetBtn();toast('已清除自定义设置')}
+function updateSetBtn(){var c=getConfig();$('set-btn').classList.toggle('has-val',!!c.apiKey)}
 
 /* ═══════════════════════════════════════════════════════════
    Tabs & Engine
@@ -320,14 +358,11 @@ function updateSetBtn(){
 function switchTab(name){
   ST.tab=name;
   document.querySelectorAll('#pane-1 .tab').forEach(function(b,i){b.classList.toggle('on',(i===0&&name==='text')||(i===1&&name==='file'))});
-  $('tab-text').classList.toggle('on',name==='text');$('tab-file').classList.toggle('on',name==='file');
-  clearMsg('parse-msg');
+  $('tab-text').classList.toggle('on',name==='text');$('tab-file').classList.toggle('on',name==='file');clearMsg('parse-msg');
 }
 function switchEngine(name){
-  ST.engine=name;
-  $('eng-smart').classList.toggle('on',name==='smart');$('eng-basic').classList.toggle('on',name==='basic');
-  $('engine-desc').textContent=name==='smart'?'使用 AI 自动识别标题，适合作者/标题混排的杂乱文本':'基于规则快速提取，适合每行一条标题的规范文本';
-  clearMsg('parse-msg');
+  ST.engine=name;$('eng-smart').classList.toggle('on',name==='smart');$('eng-basic').classList.toggle('on',name==='basic');
+  $('engine-desc').textContent=name==='smart'?'使用 AI 自动识别标题，适合作者/标题混排的杂乱文本':'基于规则快速提取，适合每行一条标题的规范文本';clearMsg('parse-msg');
 }
 function onFilePicked(file){if(!file)return;$('file-name').textContent=file.name;$('file-name').classList.remove('dn')}
 
@@ -336,51 +371,60 @@ function onFilePicked(file){if(!file)return;$('file-name').textContent=file.name
   var dz=$('dropzone');if(!dz)return;
   dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('over')});
   dz.addEventListener('dragleave',function(){dz.classList.remove('over')});
-  dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');
-    var f=e.dataTransfer.files;if(!f.length)return;
-    var dt=new DataTransfer();dt.items.add(f[0]);$('file-input').files=dt.files;onFilePicked(f[0]);
-  });
+  dz.addEventListener('drop',function(e){e.preventDefault();dz.classList.remove('over');var f=e.dataTransfer.files;if(!f.length)return;var dt=new DataTransfer();dt.items.add(f[0]);$('file-input').files=dt.files;onFilePicked(f[0])});
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   Title Parsing (client-side)
+   Progress Animation
    ═══════════════════════════════════════════════════════════ */
-var TITLE_PATTERNS=['references','参考文献','附录','appendix','致谢','acknowledgments','acknowledgements'];
+function startProgress(wrapId,barId,statusId){
+  var wrap=$(wrapId),bar=$(barId);
+  wrap.classList.add('on');bar.style.width='0%';bar.style.transition='none';
+  requestAnimationFrame(function(){bar.style.transition='width .3s';bar.style.width='15%'});
+}
+function updateProgress(barId,statusId,pct,text){
+  $(barId).style.width=pct+'%';if(text)$(statusId).textContent=text;
+}
+function stopProgress(wrapId,barId){$(wrapId).classList.remove('on');$(barId).style.width='100%'}
+
+// Cycling status messages for LLM (indeterminate progress)
+var PARSE_MESSAGES=['正在分析文本结构...','正在识别标题和作者...','正在提取文章标题...','正在整理输出格式...'];
+function startParseAnim(statusId){
+  var idx=0,el=$(statusId);
+  el.textContent=PARSE_MESSAGES[0];
+  ST.animId=setInterval(function(){idx=(idx+1)%PARSE_MESSAGES.length;el.textContent=PARSE_MESSAGES[idx]},2800);
+}
+function stopParseAnim(){if(ST.animId){clearInterval(ST.animId);ST.animId=null}}
+
+/* ═══════════════════════════════════════════════════════════
+   Title Parsing (regex, client-side)
+   ═══════════════════════════════════════════════════════════ */
+var SKIP=['references','参考文献','附录','appendix','致谢','acknowledgments','acknowledgements'];
 function isTitle(text){
   text=text.trim();if(!text||text.length<5||text.length>600)return false;
   if(/^[\d\s.\-—、,，;；:：（）()\[\]{}#*]+$/.test(text))return false;
   var tl=text.toLowerCase().replace(/\s/g,'');
-  for(var i=0;i<TITLE_PATTERNS.length;i++){if(tl.indexOf(TITLE_PATTERNS[i].replace(/\s/g,'').toLowerCase())!==-1)return false}
+  for(var i=0;i<SKIP.length;i++){if(tl.indexOf(SKIP[i].replace(/\s/g,'').toLowerCase())!==-1)return false}
   return true;
 }
 function cleanTitle(text){
-  text=text.trim();
-  text=text.replace(/^[\s]*[\[\(\（]?\d+[\]\)\）]?[.\s、,，\t]+/,'');
-  text=text.replace(/\s+/g,' ').trim();
-  text=text.replace(/^["'""''「」『』-]+/,'').replace(/["'""''「」『』-]+$/,'');
-  return text;
+  text=text.trim().replace(/^[\s]*[\[\(\（]?\d+[\]\)\）]?[.\s、,，\t]+/,'').replace(/\s+/g,' ').trim();
+  return text.replace(/^["'""''「」『』-]+/,'').replace(/["'""''「」『』-]+$/,'');
 }
 function parseText(raw){
   var lines=raw.split('\n'),titles=[],seen={};
-  for(var i=0;i<lines.length;i++){
-    var c=cleanTitle(lines[i]);if(!isTitle(c))continue;
-    var n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}
-  }
+  for(var i=0;i<lines.length;i++){var c=cleanTitle(lines[i]);if(!isTitle(c))continue;var n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}
   return titles;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   LLM Parser (client-side)
+   LLM Parser
    ═══════════════════════════════════════════════════════════ */
 var LLM_PROMPT='你是一个学术文献信息提取助手。从以下文本中提取所有文章标题。\n\n规则：\n1. 只提取文章标题本身，去掉作者姓名、期刊名、年份、卷期页码、DOI、ISSN\n2. 每篇文章输出一个标题，一行一个，不要空行\n3. 如果原文中标题因换行被截断，请合并成完整的一行\n4. 中英文标题均提取，保持原标题语言\n5. 不要编号、前缀、后缀\n6. 无法确定时宁可跳过\n7. 直接输出标题列表，不要解释';
 
 async function llmParse(text,apiBase,apiKey,model){
   var url=apiBase;
-  if(!url.endsWith('/chat/completions')){
-    if(url.endsWith('/'))url=url+'chat/completions';
-    else if(url.indexOf('/v1')!==-1)url=url+'/chat/completions';
-    else url=url.replace(/\/+$/,'')+'/v1/chat/completions';
-  }
+  if(!url.endsWith('/chat/completions')){if(url.endsWith('/'))url+='chat/completions';else if(url.indexOf('/v1')!==-1)url=url.replace(/\/+$/,'')+'/chat/completions';else url=url.replace(/\/+$/,'')+'/v1/chat/completions'}
   var resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},body:JSON.stringify({model:model,messages:[{role:'system',content:LLM_PROMPT},{role:'user',content:'请从以下文本中提取所有文章标题：\n\n'+text}],max_tokens:2000,temperature:0.1})});
   if(resp.status===401||resp.status===403)throw new Error('API Key 无效或无权限。请检查高级设置中的 Key。');
   if(resp.status===402)throw new Error('API 账户余额不足，请前往 API 平台充值。');
@@ -391,89 +435,66 @@ async function llmParse(text,apiBase,apiKey,model){
   return parseLLMResponse(content);
 }
 function parseLLMResponse(content){
-  content=content.trim();
-  content=content.replace(/^```[\w]*\s*\n?/,'').replace(/\n?```\s*$/,'');
+  content=content.trim().replace(/^```[\w]*\s*\n?/,'').replace(/\n?```\s*$/,'');
   var titles=[],seen={};
-  content.split('\n').forEach(function(line){
-    line=line.trim();if(!line)return;
-    line=line.replace(/^[\s]*[\d]+[.\、\)）]\s*/,'').replace(/^[\s]*[-–—•·]\s*/,'');
-    line=line.replace(/^["'""''「」『』]+/,'').replace(/["'""''「」『』]+$/,'');
-    if(line.length<3)return;
-    var n=line.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(line)}
-  });
+  content.split('\n').forEach(function(line){line=line.trim();if(!line)return;line=line.replace(/^[\s]*[\d]+[.\、\)）]\s*/,'').replace(/^[\s]*[-–—•·]\s*/,'').replace(/^["'""''「」『』]+/,'').replace(/["'""''「」『』]+$/,'');if(line.length<3)return;var n=line.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(line)}});
   return titles;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   File Parser (client-side)
+   File Parser
    ═══════════════════════════════════════════════════════════ */
 async function parseFile(file){
   var ext=file.name.split('.').pop().toLowerCase();
-  if(ext==='txt'){return parseText(await file.text())}
+  if(ext==='txt')return parseText(await file.text());
   if(ext==='docx'){
     if(typeof mammoth==='undefined')throw new Error('Word 解析组件未加载，请检查网络后刷新页面。或将内容复制粘贴到「粘贴文本」标签页。');
-    var arr=await file.arrayBuffer(),result=await mammoth.extractRawText({arrayBuffer:arr});
-    return parseText(result.value);
+    var arr=await file.arrayBuffer(),result=await mammoth.extractRawText({arrayBuffer:arr});return parseText(result.value);
   }
   if(ext==='xlsx'||ext==='xls'){
     if(typeof XLSX==='undefined')throw new Error('Excel 解析组件未加载，请检查网络后刷新页面。或将内容复制粘贴到「粘贴文本」标签页。');
-    var arr=await file.arrayBuffer(),wb=XLSX.read(arr,{type:'array'}),titles=[];
+    var arr=await file.arrayBuffer(),wb=XLSX.read(arr,{type:'array'}),titles=[],seen={};
     wb.SheetNames.forEach(function(name){
-      var sheet=wb.Sheets[name],data=XLSX.utils.sheet_to_json(sheet,{header:1});
-      if(!data.length)return;
+      var sheet=wb.Sheets[name],data=XLSX.utils.sheet_to_json(sheet,{header:1});if(!data.length)return;
       var titleCol=findTitleCol(data);
       for(var i=(titleCol!==null?1:0);i<data.length;i++){
-        var row=data[i];if(titleCol!==null&&titleCol<row.length){var t=String(row[titleCol]||'').trim();if(t&&isTitle(t)){var c=cleanTitle(t);titles.push(c)}}
-        else if(titleCol===null){row.forEach(function(cell){var t=String(cell||'').trim();if(isTitle(t)){var c=cleanTitle(t);titles.push(c)}})}
-      }
-    });
-    return titles;
+        var row=data[i];
+        if(titleCol!==null&&titleCol<row.length){var t=String(row[titleCol]||'').trim();if(t&&isTitle(t)){var c=cleanTitle(t),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}}
+        else if(titleCol===null){row.forEach(function(cell){var t=String(cell||'').trim();if(isTitle(t)){var c=cleanTitle(t),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}})}
+      }}
+    });return titles;
   }
   throw new Error('不支持的文件格式: .'+ext+'。支持 .docx / .xlsx / .xls / .txt');
 }
 function findTitleCol(data){
   var kw=['题名','标题','篇名','论文标题','文章标题','论文题目','title','article title','paper title','publication title'];
-  for(var r=0;r<Math.min(5,data.length);r++){
-    var row=data[r];if(!row)continue;
-    for(var c=0;c<row.length;c++){
-      var h=String(row[c]||'').toLowerCase().replace(/[\s_]/g,'');
-      for(var k=0;k<kw.length;k++){if(h.indexOf(kw[k].replace(/[\s_]/g,''))!==-1)return c}
-    }
-  }
+  for(var r=0;r<Math.min(5,data.length);r++){var row=data[r];if(!row)continue;for(var c=0;c<row.length;c++){var h=String(row[c]||'').toLowerCase().replace(/[\s_]/g,'');for(var k=0;k<kw.length;k++){if(h.indexOf(kw[k].replace(/[\s_]/g,''))!==-1)return c}}}
   return null;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DOI Lookup (client-side, Crossref API)
+   DOI Lookup (Crossref)
    ═══════════════════════════════════════════════════════════ */
 function matchScore(query,candidate){
   if(!candidate)return 0;
   var q=query.toLowerCase().trim(),c=candidate.toLowerCase().trim();
   if(q===c)return 100;
   if(q.indexOf(c)!==-1||c.indexOf(q)!==-1){var lr=Math.min(q.length,c.length)/Math.max(q.length,c.length);return Math.min(85+lr*10,98)}
-  // Simple difflib-like scoring
-  var matches=0,maxLen=Math.max(q.length,c.length);
-  for(var i=0;i<q.length;i++){if(c.indexOf(q[i])!==-1)matches++}
-  var ratio=(matches/maxLen)*100;
-  var tokens1=q.split(' ').sort().join(' '),tokens2=c.split(' ').sort().join(' ');
-  var tMatches=0,tMax=Math.max(tokens1.length,tokens2.length);
-  for(var i=0;i<tokens1.length;i++){if(tokens2.indexOf(tokens1[i])!==-1)tMatches++}
-  var tokenRatio=(tMatches/tMax)*100;
-  return tokenRatio*0.4+ratio*0.6;
+  var matches=0;for(var i=0;i<q.length;i++){if(c.indexOf(q[i])!==-1)matches++}
+  var ratio=(matches/Math.max(q.length,c.length))*100;
+  var t1=q.split(' ').sort().join(' '),t2=c.split(' ').sort().join(' '),tMatches=0;
+  for(var i=0;i<t1.length;i++){if(t2.indexOf(t1[i])!==-1)tMatches++}
+  return(tMatches/Math.max(t1.length,t2.length))*40+ratio*.6;
 }
 async function lookupDOI(title){
-  var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'',error:null,is_found:false};
+  var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false};
   try{
-    var url='https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=3';
-    var resp=await fetch(url);if(!resp.ok){res.error='Crossref API 请求失败';return res}
-    var data=await resp.json(),items=(data.message||{}).items||[];
+    var resp=await fetch('https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=3');
+    if(!resp.ok){res.error='Crossref 请求失败';return res}
+    var items=((await resp.json()).message||{}).items||[];
     if(!items.length){res.error='未找到匹配记录';return res}
     var best=null,bestScore=0;
-    items.forEach(function(item){
-      var t=(item.title||[])[0]||'';if(!t)return;
-      var s=matchScore(title,t);
-      if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s,container:(item['container-title']||[])[0]||'',year:(item.issued||{})['date-parts']||[[null]]}}
-    });
+    items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s}}});
     if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
     else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
   }catch(e){res.error='查询失败: '+e.message}
@@ -481,47 +502,51 @@ async function lookupDOI(title){
   return res;
 }
 async function batchLookup(titles,onProgress){
-  var results=[];for(var i=0;i<titles.length;i++){if(onProgress)onProgress(i+1,titles.length,titles[i]);results.push(await lookupDOI(titles[i]));if(i<titles.length-1)await sleep(300)}
+  var results=[],total=titles.length;
+  for(var i=0;i<total;i++){if(onProgress)onProgress(i+1,total,titles[i]);results.push(await lookupDOI(titles[i]));if(i<total-1)await sleep(300)}
   return results;
 }
-function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
 /* ═══════════════════════════════════════════════════════════
-   Excel Export (client-side, SheetJS)
+   Excel Export (high-confidence only)
    ═══════════════════════════════════════════════════════════ */
 function genExcel(results){
-  if(typeof XLSX==='undefined'){alert('Excel 组件未加载，请检查网络后刷新页面。也可以直接复制下方 DOI 列表。');return}
-  var rows=[['序号','原始标题','DOI','匹配标题','置信度','查询状态']];
-  results.forEach(function(r,i){rows.push([i+1,r.query_title,r.doi||'',r.matched_title||'',r.confidence>0?Math.round(r.confidence)+'%':'',r.is_found?'找到':(r.error||'未找到')])});
-  var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'DOI查询结果');
-  XLSX.writeFile(wb,'doi_results.xlsx');
+  if(typeof XLSX==='undefined'){alert('Excel 组件未加载，请检查网络后刷新页面。');return}
+  var high=results.filter(function(r){return r.is_found&&r.confidence>=90});
+  if(!high.length){alert('没有高置信度结果可导出。');return}
+  var rows=[['序号','原始标题','DOI','匹配标题','置信度']];
+  high.forEach(function(r,i){rows.push([i+1,r.query_title,r.doi||'',r.matched_title||'',Math.round(r.confidence)+'%'])});
+  var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'高置信度DOI结果');
+  XLSX.writeFile(wb,'doi_high_confidence.xlsx');
 }
 
 /* ═══════════════════════════════════════════════════════════
    Parse Action (Step 1 → 2)
    ═══════════════════════════════════════════════════════════ */
 async function doParse(){
-  clearMsg('parse-msg');var btn=$('btn-parse'),isLLM=ST.engine==='smart',isFile=ST.tab==='file';
+  clearMsg('parse-msg');stopParseAnim();$('parse-prog').classList.remove('on');
+  var btn=$('btn-parse'),isLLM=ST.engine==='smart',isFile=ST.tab==='file';
 
   if(isFile){
     var fi=$('file-input');if(!fi.files.length){setMsg('parse-msg','err','请先选择文件');return}
     btn.disabled=true;btn.innerHTML='<span class="spin"></span>解析文件中...';
-    try{var titles=await parseFile(fi.files[0]);if(titles.length)showPreview(titles,'文件解析');else setMsg('parse-msg','err','未能从文件中解析出标题')}
+    startProgress('parse-prog','parse-bar-fill','parse-status-text');updateProgress('parse-bar-fill','parse-status-text',30,'正在读取文件...');
+    try{var titles=await parseFile(fi.files[0]);updateProgress('parse-bar-fill','parse-status-text',100,'解析完成');if(titles.length)showPreview(titles,'文件解析');else setMsg('parse-msg','err','未能从文件中解析出标题')}
     catch(e){setMsg('parse-msg','err',e.message)}
-    finally{btn.disabled=false;btn.innerHTML='解析标题'}
+    finally{stopProgress('parse-prog','parse-bar-fill');btn.disabled=false;btn.innerHTML='解析标题'}
     return;
   }
 
   var text=$('raw-text').value;if(!text.trim()){setMsg('parse-msg','err','请先输入标题文本');return}
 
   if(isLLM){
-    var cfg=getConfig();
-    if(!cfg.apiKey){setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写，或联系管理员。');return}
-    btn.disabled=true;btn.innerHTML='<span class="spin"></span>AI 正在分析文本，请稍候...';
+    var cfg=getConfig();if(!cfg.apiKey){setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写。');return}
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span>AI 分析中...';
     setMsg('parse-msg','inf','正在调用 AI 解析，复杂文本可能需要 5–15 秒...');
-    try{var titles=await llmParse(text,cfg.apiBase,cfg.apiKey,cfg.model);showPreview(titles,'AI 智能解析')}
-    catch(e){setMsg('parse-msg','err',e.message+' 可尝试切换到「基础解析」重试。')}
-    finally{btn.disabled=false;btn.innerHTML='解析标题'}
+    startProgress('parse-prog','parse-bar-fill','parse-status-text');startParseAnim('parse-status-text');
+    try{var titles=await llmParse(text,cfg.apiBase,cfg.apiKey,cfg.model);updateProgress('parse-bar-fill','parse-status-text',100,'解析完成');stopParseAnim();showPreview(titles,'AI 智能解析')}
+    catch(e){stopParseAnim();setMsg('parse-msg','err',e.message+' 可尝试切换到「基础解析」重试。')}
+    finally{stopProgress('parse-prog','parse-bar-fill');btn.disabled=false;btn.innerHTML='解析标题'}
   }else{
     btn.disabled=true;btn.innerHTML='<span class="spin"></span>解析中...';
     try{var titles=parseText(text);if(titles.length)showPreview(titles,'基础规则解析');else setMsg('parse-msg','err','未能解析出有效标题，请检查格式或切换到「智能解析」。')}
@@ -530,29 +555,31 @@ async function doParse(){
   }
 }
 
-function showPreview(titles,source){
-  $('preview-text').value=titles.join('\n');
-  $('title-count').textContent='共 '+titles.length+' 个标题  ·  '+source;
-  goStep(2);
-}
+function showPreview(titles,source){$('preview-text').value=titles.join('\n');$('title-count').textContent='共 '+titles.length+' 个标题  ·  '+source;goStep(2)}
 
 /* ═══════════════════════════════════════════════════════════
    Lookup Action (Step 2 → 3)
    ═══════════════════════════════════════════════════════════ */
 async function doLookup(){
-  clearMsg('lookup-msg');var btn=$('btn-lookup');
-  var raw=$('preview-text').value,titles=raw.split('\n').map(function(s){return s.trim()}).filter(Boolean);
+  clearMsg('lookup-msg');$('lookup-prog').classList.remove('on');
+  var btn=$('btn-lookup'),raw=$('preview-text').value,titles=raw.split('\n').map(function(s){return s.trim()}).filter(Boolean);
   if(!titles.length){setMsg('lookup-msg','err','标题列表为空');return}
   if(titles.length>100&&!confirm('共 '+titles.length+' 条，预计需要 '+Math.round(titles.length*.5)+' 秒左右。是否继续？'))return;
+
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>查询中...';
-  setMsg('lookup-msg','inf','正在查询 Crossref 数据库，请稍候...');
+  setMsg('lookup-msg','inf','正在查询 Crossref 数据库...');
+  startProgress('lookup-prog','lookup-bar-fill','lookup-status-text');
+
   try{
     var results=await batchLookup(titles,function(cur,total,title){
-      btn.innerHTML='<span class="spin"></span>查询中 '+cur+'/'+total+'...';
+      var pct=Math.round(cur/total*100);updateProgress('lookup-bar-fill','lookup-status-text',pct,'查询中 '+cur+'/'+total);
+      $('lookup-count-text').textContent=Math.round((total-cur)*0.3)+'秒 剩余';
+      btn.innerHTML='<span class="spin"></span>'+cur+'/'+total;
     });
+    updateProgress('lookup-bar-fill','lookup-status-text',100,'查询完成');$('lookup-count-text').textContent='';
     ST.results=results;renderResults(results);goStep(3);
   }catch(e){setMsg('lookup-msg','err','查询失败: '+e.message)}
-  finally{btn.disabled=false;btn.innerHTML='批量查询 DOI →'}
+  finally{stopProgress('lookup-prog','lookup-bar-fill');btn.disabled=false;btn.innerHTML='批量查询 DOI →'}
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -561,33 +588,36 @@ async function doLookup(){
 function renderResults(results){
   var total=results.length,found=0,high=0,mid=0,low=0;
   results.forEach(function(r){if(r.is_found){found++;if(r.confidence>=90)high++;else if(r.confidence>=70)mid++;else low++}});
-  $('stats-row').innerHTML='<div class="stc"><div class="n">'+total+'</div><div class="l">总计</div></div><div class="stc g"><div class="n">'+found+'</div><div class="l">找到 DOI</div></div><div class="stc g"><div class="n">'+high+'</div><div class="l">高置信度</div></div><div class="stc y"><div class="n">'+mid+'</div><div class="l">中置信度</div></div><div class="stc r"><div class="n">'+low+'</div><div class="l">低置信度</div></div>';
+  $('stats-row').innerHTML='<div class="stc accent"><div class="n">'+total+'</div><div class="l">总计</div></div><div class="stc g"><div class="n">'+found+'</div><div class="l">找到 DOI</div></div><div class="stc g"><div class="n">'+high+'</div><div class="l">高置信度</div></div><div class="stc y"><div class="n">'+mid+'</div><div class="l">中置信度</div></div><div class="stc r"><div class="n">'+low+'</div><div class="l">低置信度</div></div>';
 
   var h='<table><thead><tr><th>#</th><th>原始标题</th><th>DOI</th><th>匹配标题</th><th>置信</th><th>状态</th></tr></thead><tbody>';
   results.forEach(function(r,i){
     var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else if(r.confidence>=70)tag='<span class="tag tag-md">中</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a>':'—';
-    var nt=r.error?esc(r.error):(r.is_found?'✓':'');
-    h+='<tr><td>'+(i+1)+'</td><td class="ct">'+esc(r.query_title)+'</td><td class="cd">'+doi+'</td><td class="ct">'+esc(r.matched_title||'—')+'</td><td>'+cf+' '+tag+'</td><td style="font-size:12px;color:var(--text-3)">'+nt+'</td></tr>';
+    h+='<tr><td>'+(i+1)+'</td><td class="ct">'+esc(r.query_title)+'</td><td class="cd">'+doi+'</td><td class="ct">'+esc(r.matched_title||'—')+'</td><td>'+cf+' '+tag+'</td><td style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
-  var dlist=results.filter(function(r){return r.doi}).map(function(r){return r.doi}).join('\n');
-  $('doi-output').textContent=dlist||'';
+
+  // Only high-confidence DOIs in output
+  var highDOIs=results.filter(function(r){return r.is_found&&r.confidence>=90}).map(function(r){return r.doi});
+  $('doi-output').textContent=highDOIs.join('\n')||'';
 }
 
 function copyDOI(){
-  var t=$('doi-output').textContent;if(!t){toast('无 DOI 可复制');return}
+  var t=$('doi-output').textContent;if(!t){toast('无高置信度 DOI 可复制');return}
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast('已复制 '+t.split('\n').length+' 条 DOI')})}
   else{var r=document.createRange();r.selectNodeContents($('doi-output'));var s=window.getSelection();s.removeAllRanges();s.addRange(r);toast('已选中，请按 Ctrl+C 复制')}
 }
 function exportExcel(){
   if(!ST.results||!ST.results.length){toast('无数据');return}
+  var high=ST.results.filter(function(r){return r.is_found&&r.confidence>=90});
+  if(!high.length){toast('无高置信度结果可导出');return}
   if(typeof XLSX==='undefined'){alert('Excel 组件未加载。请直接复制上方 DOI 列表。');return}
-  try{genExcel(ST.results);toast('下载已开始')}catch(e){toast('导出失败: '+e.message)}
+  try{genExcel(ST.results);toast('已导出 '+high.length+' 条高置信度 DOI')}catch(e){toast('导出失败: '+e.message)}
 }
 
-function resetAll(){$('preview-text').value='';$('title-count').textContent='';clearMsg('parse-msg');clearMsg('lookup-msg');ST.results=null;goStep(1)}
+function resetAll(){stopParseAnim();$('preview-text').value='';$('title-count').textContent='';clearMsg('parse-msg');clearMsg('lookup-msg');ST.results=null;goStep(1)}
 
 /* init */
 loadSettings();
