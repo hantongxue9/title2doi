@@ -466,12 +466,19 @@ async function parseFile(file){
     var arr=await file.arrayBuffer(),wb=XLSX.read(arr,{type:'array'}),titles=[],seen={};
     wb.SheetNames.forEach(function(name){
       var sheet=wb.Sheets[name],data=XLSX.utils.sheet_to_json(sheet,{header:1});if(!data.length)return;
-      var titleCol=findTitleCol(data);
-      for(var i=(titleCol!==null?1:0);i<data.length;i++){
+      var titleCol=findTitleCol(data),startRow=(titleCol!==null?1:0);
+      for(var i=startRow;i<data.length;i++){
         var row=data[i];
-        if(titleCol!==null&&titleCol<row.length){var t=String(row[titleCol]||'').trim();if(t&&isTitle(t)){var c=cleanTitle(t),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}}
-        else if(titleCol===null){row.forEach(function(cell){var t=String(cell||'').trim();if(isTitle(t)){var c=cleanTitle(t),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}})}
-      }}
+        if(titleCol!==null&&titleCol<row.length){
+          var t=String(row[titleCol]||'').trim();
+          if(t&&isTitle(t)){var c=cleanTitle(t),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}
+        }else if(titleCol===null){
+          for(var j=0;j<row.length;j++){
+            var cell=String(row[j]||'').trim();
+            if(isTitle(cell)){var c=cleanTitle(cell),n=c.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(c)}}
+          }
+        }
+      }
     });return titles;
   }
   throw new Error('不支持的文件格式: .'+ext+'。支持 .docx / .xlsx / .xls / .txt');
