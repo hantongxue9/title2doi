@@ -1044,7 +1044,9 @@ async function batchRetry(filter){
   renderResults(ST.results);
   if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
   updateBatchBtn();
-  toast('批量重试完成：'+promoted+' 条自动移入高置信度，'+(targets.length-promoted)+' 条仍需关注');
+  // 按实际筛选结果计数，而非用 targets.length 估算
+  var remain=0;ST.results.forEach(function(r){var cls=r.is_found?(r.confidence>=90?'high':'low'):'none';if(cls===filter)remain++});
+  toast('批量重试完成：'+promoted+' 条移入高置信度，'+(targets.length-promoted-remain)+' 条升至低置信度，'+remain+' 条仍在此栏');
 }
 
 function copySingleDOI(doi,btn){
