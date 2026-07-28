@@ -718,7 +718,7 @@ function findTitleCol(data){
 function matchScore(query,candidate){
   if(!candidate)return 0;
   // 标准化：去多余空白、全角转半角、统一大小写
-  var norm=function(s){return s.toLowerCase().trim().replace(/[\s　]+/g,' ').replace(/[，。；：！？（）【】《》""'']/g,function(c){return{'　':' ','，':',','。':'.','；':';','：':':','！':'!','？':'?','（':'(','）':')','【':'[','】':']','《':'<','》':'>','"':'"','"':'"',''':\"'\"',''':\"'\"}[c]||c})};
+  var norm=function(s){return s.toLowerCase().trim().replace(/[\s　]+/g,' ')};
   var q=norm(query),c=norm(candidate);
   if(!q||!c)return 0;
 
@@ -726,7 +726,7 @@ function matchScore(query,candidate){
   if(q===c)return 100;
 
   // 去标点后一致 = 98（仅标点差异）
-  var stripPunct=function(s){return s.replace(/[,.!?;:()\[\]{}<>\"'\-–—\s]+/g,'')};
+  var stripPunct=function(s){return s.replace(/[^a-z0-9一-鿿]/g,'')};
   if(stripPunct(q)===stripPunct(c)&&Math.abs(q.length-c.length)<10)return 98;
 
   // 否则严格计算：词级Jaccard × 词序LCS，上限封顶70
