@@ -8,9 +8,11 @@
 
 访问 [GitHub Pages](https://hantongxue9.github.io/title2doi/) 直接使用，无需安装。
 
-1. 粘贴标题或上传文件 → 解析标题
+1. 粘贴标题或上传文件 → 解析标题（或 Ctrl+Enter）
 2. 确认标题列表（可编辑增删）→ 批量查询 DOI
 3. 复制高置信度结果或下载 Excel
+
+快捷键：输入框中 **Ctrl+Enter** 快速解析。输入内容自动暂存，刷新不丢失。
 
 ## 解析模式
 

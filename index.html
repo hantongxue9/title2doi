@@ -186,16 +186,26 @@
   /* stat filter */
   .stc.filter-on{box-shadow:0 0 0 2px var(--brand-500);border-color:var(--brand-500)}
   .stc{cursor:pointer;user-select:none}
+  .stc:active{transform:scale(.97)}
 
   /* help button & dropdown */
   .help-btn{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;padding:0}
   .help-btn:hover{background:rgba(255,255,255,.1);color:#fff}
-  .help-drop{position:fixed;top:64px;right:24px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:20px 22px;width:320px;display:none;animation:paneIn .2s ease}
+  .help-drop{position:fixed;top:64px;right:24px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:20px 22px;width:330px;display:none;animation:paneIn .2s ease}
   .help-drop.open{display:block}
+  .help-drop::before{content:'';position:absolute;top:-7px;right:38px;width:12px;height:12px;background:var(--surface);border:1px solid var(--border);border-right:none;border-bottom:none;transform:rotate(45deg)}
   .help-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
   .help-item{font-size:13px;color:var(--text-2);line-height:1.65;padding:8px 0;border-bottom:1px solid var(--border)}
   .help-item b{color:var(--text);font-weight:600}
-  @media(max-width:500px){.help-drop{right:8px;width:calc(100vw - 16px);max-width:340px}}
+  @media(max-width:500px){.help-drop{right:8px;width:calc(100vw - 16px);max-width:340px}.help-drop::before{right:20px}}
+  @media(max-width:768px){
+    .t-wrap table,.t-wrap thead,.t-wrap tbody,.t-wrap th,.t-wrap td,.t-wrap tr{display:block}
+    .t-wrap thead{display:none}
+    .t-wrap tr{padding:12px;border-bottom:1px solid var(--border)}
+    .t-wrap td{padding:4px 0;border:none;display:flex;gap:8px}
+    .t-wrap td::before{content:attr(data-label);font-weight:600;color:var(--text-2);font-size:11px;text-transform:uppercase;min-width:70px;flex-shrink:0}
+    .t-wrap .ct{max-width:none}
+  }
 
   .tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;letter-spacing:.1px}
   .tag-hi{background:var(--green-50);color:var(--green-700)}.tag-md{background:var(--amber-50);color:var(--amber-600)}
@@ -238,7 +248,8 @@
   <div class="help-item"><b>基础解析</b><br>每行一个标题的规范文本。也支持上传 Word/Excel 文件（自动识别标题列）。</div>
   <div class="help-item"><b>置信度</b><br>≥90% 高置信度，可直接使用。<br>&lt;90% 低置信度，建议人工核实。</div>
   <div class="help-item"><b>默认解析不可用？</b><br>点击右上角「高级设置」自行配置 API。也可切换至「基础解析」，不依赖 AI，DOI 查询照常使用。</div>
-  <div class="help-item" style="border-bottom:none"><b>快捷键</b><br>输入框中 Ctrl + Enter 快速触发解析。</div>
+  <div class="help-item"><b>快捷键</b><br>输入框中 Ctrl + Enter 快速触发解析。</div>
+  <div class="help-item" style="border-bottom:none;color:var(--text-3);font-size:12.5px">有疑问或建议？<a href="mailto:weichaohan@ustc.edu.cn" style="color:var(--brand-600);font-weight:500">weichaohan@ustc.edu.cn</a></div>
 </div>
 
 <div class="main">
@@ -315,7 +326,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
   <div class="prog-wrap" id="lookup-prog">
     <div class="prog-text"><span class="prog-status"><span class="spin"></span><span id="lookup-status-text">正在查询...</span></span><span id="lookup-count-text" class="t3" style="font-size:12px">0/0</span></div>
     <div class="prog-bar"><div class="prog-fill" id="lookup-bar-fill" style="width:0%"></div></div>
-    <div class="tc mt-2"><button class="btn btn-4 btn-sm dn" id="cancel-lookup" onclick="cancelLookup()" style="color:var(--red-500)">取消查询</button></div>
+    <div class="tc mt-2"><button class="btn btn-3 btn-sm dn" id="cancel-lookup" onclick="cancelLookup()" style="color:var(--red-500);border-color:#fecaca">取消查询</button></div>
   </div>
   <div class="msg" id="lookup-msg"></div>
 </div></div></div>
@@ -340,7 +351,6 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
 <div class="foot">
   <div>title2doi · Crossref · DeepSeek</div>
   <div style="margin-top:4px">USTC Lib · Han</div>
-  <div style="margin-top:6px">优化建议：weichaohan@ustc.edu.cn</div>
 </div>
 </div>
 
@@ -384,6 +394,11 @@ function goStep(n){
   }
   $('sl-1').classList.toggle('done',n>1);$('sl-2').classList.toggle('done',n>2);
   window.scrollTo({top:0,behavior:'smooth'});
+  // 聚焦新步骤的第一个可交互元素
+  setTimeout(function(){
+    var el=document.querySelector('#pane-'+n+' .btn:not(.btn-4):not(:disabled), #pane-'+n+' textarea, #pane-'+n+' [contenteditable]');
+    if(el)el.focus();
+  },350);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -716,8 +731,9 @@ function genExcel(results){
    Parse Action (Step 1 → 2)
    ═══════════════════════════════════════════════════════════ */
 async function doParse(){
+  var btn=$('btn-parse');if(btn.disabled)return; // 防重复点击
   clearMsg('parse-msg');stopParseAnim();$('parse-prog').classList.remove('on');
-  var btn=$('btn-parse'),isLLM=ST.engine==='smart',isFile=ST.tab==='file';
+  var isLLM=ST.engine==='smart',isFile=ST.tab==='file';
 
   if(isFile){
     var fi=$('file-input');if(!fi.files.length){setMsg('parse-msg','err','请先选择文件');return}
@@ -873,7 +889,7 @@ function renderResults(results){
     var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
-    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'"><td>'+(i+1)+'</td><td class="ct">'+esc(r.query_title)+'</td><td class="cd">'+doi+'</td><td class="ct">'+esc(r.matched_title||'—')+'</td><td>'+cf+' '+tag+'</td><td style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
+    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
   ST.resultFilter='all';
