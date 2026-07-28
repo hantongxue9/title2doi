@@ -338,6 +338,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
 <div class="pane" id="pane-3"><div class="card"><div class="card-inner">
   <div class="card-ttl">查询结果</div><p class="card-sub">DOI 已从 Crossref 数据库中检索，按置信度标注匹配质量</p>
   <div class="stats" id="stats-row"></div>
+  <div class="dn" id="batch-retry-wrap" style="margin-bottom:14px"><button class="btn btn-3 btn-sm" onclick="batchRetry(ST.resultFilter)">全部重试 <span id="batch-retry-label"></span>条目</button></div>
   <div class="t-wrap" id="results-table"></div>
 
   <div class="card-ttl" style="margin-top:24px">导出结果 <span class="t3" style="font-weight:400;font-size:12px">（仅包含高置信度 ≥90%）</span></div>
@@ -347,7 +348,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
     <button class="btn btn-4" onclick="goStep(2)">← 返回预览</button>
     <button class="btn btn-4" onclick="resetAll()">重新开始</button>
   </div>
-  <div class="filter-note mt-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>仅展示高置信度结果，查询结果仅供参考。低置信度及未找到条目请看上方表格，可点击统计卡片筛选后自行核实。</div>
+  <div class="filter-note mt-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>仅展示高置信度结果，查询结果仅供参考。低置信度及未找到条目可点击 ↻ 重试单条，或筛选后批量重试。重试查到后可点击「→ 高置信度」移入。</div>
   <div class="doi-out" id="doi-output"></div>
 </div></div></div>
 
@@ -920,13 +921,22 @@ function renderResults(results){
 
   var h='<table><thead><tr><th>#</th><th>原始标题</th><th>DOI</th><th>匹配标题</th><th>置信</th><th>状态</th></tr></thead><tbody>';
   results.forEach(function(r,i){
-    var confClass='';if(r.is_found){if(r.confidence>=90)confClass='high';else confClass='low'}else confClass='none';
-    var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
-    var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
+    // 显示分类：重试过的用原始分类，否则用实际分类
+    var displayConf=r._retried?r._origConf:r.confidence;
+    var displayFound=r._retried?r._origFound:r.is_found;
+    var confClass='';if(displayFound){if(displayConf>=90)confClass='high';else confClass='low'}else confClass='none';
+    var tag='';if(displayFound){if(displayConf>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
+    var cf=displayConf>0?Math.round(displayConf)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
+    // 重试按钮：未找到或低置信度
     var needRetry=!r.is_found||(r.is_found&&r.confidence<90);
-    var statusCell=(r.is_found?'✓':'<span class="t3">未找到</span>')+(needRetry?' <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>':'');
-    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
+    // 移入按钮：重试过且查到了DOI但原始分类不是高置信度
+    var canPromote=r._retried&&r.is_found&&(!r._origFound||r._origConf<90);
+    var statusCell='';
+    if(r.is_found&&r.confidence>=90&&!r._retried)statusCell='✓';
+    else if(canPromote)statusCell='✓ <button class="btn-retry" style="color:var(--green-600);border-color:var(--green-500)" onclick="promoteToHigh('+i+')" title="移入高置信度">→ 高置信度</button>';
+    else statusCell=(r.is_found?'✓':'<span class="t3">未找到</span>')+(needRetry?' <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>':'');
+    h+='<tr data-conf="'+confClass+'" data-found="'+(displayFound?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
   ST.resultFilter='all';
@@ -944,17 +954,51 @@ function setFilter(f){
     if(f==='all'){tr.style.display='';return}
     tr.style.display=tr.getAttribute('data-conf')===f?'':'none';
   });
+  // 显示/隐藏批量重试按钮
+  var batch=$('batch-retry-wrap');
+  if(batch){
+    if(f==='low'||f==='none'){batch.classList.remove('dn');$('batch-retry-label').textContent=f==='low'?'低置信度':'未找到'}
+    else batch.classList.add('dn');
+  }
 }
 
 async function retrySingleQuery(idx,btn){
   if(!ST.results||!ST.results[idx])return;
-  var orig=btn.textContent;btn.textContent='...';btn.disabled=true;
-  var r=await lookupDOI(ST.results[idx].query_title);
+  var old=ST.results[idx];btn.textContent='...';btn.disabled=true;
+  var r=await lookupDOI(old.query_title);
+  // 保留原始分类，标记已重试
+  r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found;
   ST.results[idx]=r;
-  // 原地重渲染整表（保持筛选状态）
   renderResults(ST.results);
   if(ST.resultFilter&&ST.resultFilter!=='all')setFilter(ST.resultFilter);
-  toast(r.is_found?'重试成功 ✓':'仍未找到');
+  toast(r.is_found&&!old.is_found?'重试查到 DOI，可点击「移入高置信度」':(r.is_found?'重试完成':'仍未找到'));
+}
+function promoteToHigh(idx){
+  if(!ST.results||!ST.results[idx])return;
+  ST.results[idx].confidence=91;ST.results[idx].confidence_level='高';ST.results[idx].is_found=true;
+  ST.results[idx]._retried=false;ST.results[idx]._origConf=null;ST.results[idx]._origFound=null;
+  renderResults(ST.results);
+  if(ST.resultFilter&&ST.resultFilter!=='all')setFilter(ST.resultFilter);
+  toast('已移入高置信度 ✓');
+}
+async function batchRetry(filter){
+  if(!ST.results)return;
+  var targets=[];
+  ST.results.forEach(function(r,i){
+    var cls=r.is_found?(r.confidence>=90?'high':'low'):'none';
+    if(cls===filter)targets.push(i);
+  });
+  if(!targets.length){toast('没有可重试的条目');return}
+  toast('正在重试 '+targets.length+' 条...');
+  for(var t=0;t<targets.length;t++){
+    var idx=targets[t],old=ST.results[idx];
+    var r=await lookupDOI(old.query_title);
+    r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found;
+    ST.results[idx]=r;
+  }
+  renderResults(ST.results);
+  if(ST.resultFilter)setFilter(ST.resultFilter);
+  toast('批量重试完成，共 '+targets.length+' 条');
 }
 
 function copySingleDOI(doi,btn){
