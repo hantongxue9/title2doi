@@ -188,8 +188,8 @@
   .stc{cursor:pointer;user-select:none}
 
   /* help button & dropdown */
-  .help-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);background:transparent;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .2s;line-height:1}
-  .help-btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.6);color:#fff}
+  .help-btn{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;padding:0}
+  .help-btn:hover{background:rgba(255,255,255,.1);color:#fff}
   .help-drop{position:fixed;top:64px;right:24px;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:20px 22px;width:320px;display:none;animation:paneIn .2s ease}
   .help-drop.open{display:block}
   .help-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
@@ -225,16 +225,17 @@
     <span class="topbar-sub">· 查收查引辅助工具</span>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
-    <button class="help-btn" id="help-btn" onclick="toggleHelp()" title="使用说明">?</button>
-    <span class="topbar-sub">中国科学技术大学图书馆</span>
+    <button class="help-btn" id="help-btn" onclick="toggleHelp()" title="使用说明"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
+    <span class="topbar-sub">USTC Lib · Han</span>
   </div>
 </header>
 
 <!-- Help dropdown -->
 <div class="help-drop" id="help-drop">
   <div class="help-title">使用说明</div>
-  <div class="help-item"><b>智能解析 (AI)</b><br>粘贴含作者、期刊、年份的引用文本，AI 自动提取标题。适合杂乱格式。</div>
+  <div class="help-item"><b>智能解析 (AI)</b><br>粘贴含作者、期刊、年份的引用文本，AI 自动提取标题。</div>
   <div class="help-item"><b>基础解析</b><br>每行一个标题的规范文本。也支持上传 Word/Excel 文件（自动识别标题列）。</div>
+  <div class="help-item"><b>💡 建议</b><br>尽量使用粘贴纯文本的方式输入，准确度更高。文件上传需先提取文本，可能引入格式噪声。</div>
   <div class="help-item"><b>置信度</b><br>≥90% 高置信度，可直接使用。<br>&lt;90% 低置信度，建议人工核实。</div>
   <div class="help-item" style="border-bottom:none"><b>未配置 API Key？</b><br>使用「基础解析」即可，DOI 查询不依赖 AI。</div>
 </div>
@@ -334,7 +335,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
   <div class="doi-out" id="doi-output"></div>
 </div></div></div>
 
-<div class="foot"><span>title2doi · 中国科学技术大学图书馆 · Crossref API</span></div>
+<div class="foot"><span>title2doi · USTC Lib · Han · Crossref API</span></div>
 </div>
 
 <div class="toast" id="toast"></div>
