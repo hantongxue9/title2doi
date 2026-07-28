@@ -10,6 +10,9 @@ build/
 venv/
 .venv/
 
+# Generated config (contains secrets, injected by GitHub Actions)
+config.js
+
 # Logs
 logs/
 
