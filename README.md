@@ -1,63 +1,60 @@
-# title2doi — 标题DOI批量检索工具
+# title2doi · 标题DOI批量检索
 
-中国科学技术大学图书馆 · 查收查引辅助工具
+USTC Lib · Han · 查收查引辅助工具
 
-批量从文章标题检索 DOI。支持粘贴文本和上传 Word/Excel 文件，内置 AI 智能解析和规则解析双引擎。
+输入文章标题（粘贴或上传 Word/Excel），AI 自动提取标题并批量查询 DOI。
 
-## 快速开始
+## 使用
 
-访问 [GitHub Pages](https://hantongxue9.github.io/title2doi/) 直接使用，无需安装。
+访问 [GitHub Pages](https://hantongxue9.github.io/title2doi/)，无需安装。
 
-1. 粘贴标题或上传文件 → 解析标题（或 Ctrl+Enter）
-2. 确认标题列表（可编辑增删）→ 批量查询 DOI
-3. 复制高置信度结果或下载 Excel
-
-快捷键：输入框中 **Ctrl+Enter** 快速解析。输入内容自动暂存，刷新不丢失。
+1. 粘贴标题或上传文件 →「解析标题」（或 Ctrl+Enter）
+2. 确认标题列表（可编辑增删）→「批量查询 DOI」
+3. 查看结果，复制高置信度 DOI 或下载 Excel
 
 ## 解析模式
 
 | 模式 | 适用场景 |
 |------|---------|
-| **智能解析 (AI)** | 作者、标题、期刊混排的杂乱引用文本。自动按换行切分条目，AI 提取标题。输入已是干净标题时自动跳过 AI，秒出结果 |
-| **基础解析** | 每行一个标题的规范文本。上传 Word/Excel 使用此模式（自动识别标题列） |
+| 智能解析 (AI) | 作者、标题、期刊混排的引用文本。自动按换行切分后送 LLM 提取标题 |
+| 基础解析 | 每行一个标题的规范文本。上传 Word/Excel 使用此模式 |
+
+输入已是干净标题时自动跳过 AI，零 token 消耗。
 
 ## 置信度
 
-DOI 匹配结果按置信度分为两档（基于 Crossref 返回标题与原始标题的文本相似度）：
+DOI 匹配按标题文本相似度分为两档：
 
 | 等级 | 阈值 | 说明 |
 |------|------|------|
-| 高置信度 | ≥ 90% | 匹配准确，可直接使用 |
-| 低置信度 | < 90% | 可能不准确，建议人工核实 |
+| 高 | ≥ 90% | 标题完全一致或仅标点差异，可直接使用 |
+| 低 | < 90% | 需人工核实。可点击 ↻ 单条重试或批量重试 |
 
-导出功能仅包含高置信度结果。
+导出仅包含高置信度结果。中文匹配使用二元组算法，比英文更严格（封顶 50 分）。
 
-## 管理员部署
+## 部署
 
-### GitHub Pages（推荐）
+### GitHub Pages（当前）
 
-仓库已配置 GitHub Actions 自动部署。在 Settings → Secrets and variables → Actions 中添加三个 Secret：
+仓库配置了 GitHub Actions，push master 自动部署。需设置三个 Secrets：
 
-| Secret | 示例值 |
-|--------|--------|
+| Secret | 示例 |
+|--------|------|
 | `LLM_API_BASE` | `https://api.deepseek.com/v1/chat/completions` |
 | `LLM_API_KEY` | `sk-...` |
 | `LLM_MODEL` | `deepseek-chat` |
 
-每次 push master 自动部署。用户可通过页面右上角「高级设置」覆盖默认 API 配置。
+用户可在页面高级设置中覆盖默认配置。
 
-### 本地 Python 服务器（备选）
+### 本地 Python（备选）
 
 ```bash
 cd server
 pip install -r requirements.txt
-cp .env.example .env   # 编辑填入 API Key
+cp .env.example .env
 python run.py
 ```
 
 ## 技术栈
 
-- 纯静态 SPA（HTML + CSS + vanilla JS）
-- LLM：OpenAI 兼容 API（默认 DeepSeek）
-- DOI 查询：Crossref API（免费，无需 Key）
-- 文档解析：SheetJS（Excel）+ Mammoth.js（Word）
+纯静态 SPA · Crossref API · DeepSeek LLM · SheetJS · Mammoth.js

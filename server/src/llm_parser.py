@@ -169,7 +169,7 @@ def parse_via_llm(
                 if "model" in api_msg.lower() and ("not exist" in api_msg.lower() or "not found" in api_msg.lower()):
                     raise RuntimeError(
                         f"模型 '{model_name}' 不存在。"
-                        "请在 API 设置面板中填入正确的模型 ID（可在硅基流动后台查看）。"
+                        "请在 API 设置面板中填入正确的模型 ID。"
                     )
 
                 raise RuntimeError(
