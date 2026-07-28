@@ -717,49 +717,50 @@ function findTitleCol(data){
    ═══════════════════════════════════════════════════════════ */
 function matchScore(query,candidate){
   if(!candidate)return 0;
-  var q=query.toLowerCase().trim(),c=candidate.toLowerCase().trim();
+  // 标准化：去多余空白、全角转半角、统一大小写
+  var norm=function(s){return s.toLowerCase().trim().replace(/[\s　]+/g,' ').replace(/[，。；：！？（）【】《》""'']/g,function(c){return{'　':' ','，':',','。':'.','；':';','：':':','！':'!','？':'?','（':'(','）':')','【':'[','】':']','《':'<','》':'>','"':'"','"':'"',''':\"'\"',''':\"'\"}[c]||c})};
+  var q=norm(query),c=norm(candidate);
+  if(!q||!c)return 0;
+
+  // 完全一致（忽略大小写和空白差异）= 100
   if(q===c)return 100;
 
-  // 检测是否主要为中文（CJK字符占比>30%）
-  var cjkRe=/[一-鿿㐀-䶿]/g;
-  var qCJK=(q.match(cjkRe)||[]).length,cCJK=(c.match(cjkRe)||[]).length;
-  var isChinese=(qCJK/q.length>0.3)||(cCJK/c.length>0.3);
+  // 去标点后一致 = 98（仅标点差异）
+  var stripPunct=function(s){return s.replace(/[,.!?;:()\[\]{}<>\"'\-–—\s]+/g,'')};
+  if(stripPunct(q)===stripPunct(c)&&Math.abs(q.length-c.length)<10)return 98;
 
-  if(isChinese){
-    // 中文：字级二元组（bigram）Jaccard相似度
-    var bigrams=function(s){
-      var chars=s.replace(/[\s,;:.!?()\[\]{}""''\-–—]+/g,'').split('');
-      var bg=[];for(var i=0;i<chars.length-1;i++)bg.push(chars[i]+chars[i+1]);
-      return bg;
-    };
-    var qb=bigrams(q),cb=bigrams(c);
-    if(!qb.length||!cb.length)return 0;
-    var set={},shared=0;qb.forEach(function(b){set[b]=1});
-    cb.forEach(function(b){if(set[b])shared++});
-    var jaccard=shared/(qb.length+cb.length-shared);
-    var lenRatio=Math.min(q.length,c.length)/Math.max(q.length,c.length);
-    return Math.min(Math.round((jaccard*80+lenRatio*20)*1000)/10,99.9);
-  }
+  // 否则严格计算：词级Jaccard × 词序LCS，上限封顶70
+  var tokenize=function(s){
+    // 中文按字切，英文按空格切
+    var hasCJK=/[一-鿿]/.test(s);
+    if(hasCJK)return s.replace(/[\s,;:.!?()\[\]{}""''\-–—]+/g,'').split('');
+    return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean);
+  };
+  var qt=tokenize(q),ct=tokenize(c);
+  if(!qt.length||!ct.length)return 0;
 
-  // 英文：词级匹配 + 词序约束
-  var tokenize=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean)};
-  var qw=tokenize(q),cw=tokenize(c);
-  if(!qw.length||!cw.length)return 0;
-  var matched=0,cwRemain=cw.slice();
-  qw.forEach(function(w){var idx=cwRemain.indexOf(w);if(idx!==-1){matched++;cwRemain.splice(idx,1)}});
-  var precision=matched/cw.length,recall=matched/qw.length;
-  var wordF1=precision+recall>0?2*precision*recall/(precision+recall):0;
+  // 词级 Jaccard
+  var qSet={},cSet={};
+  qt.forEach(function(w){qSet[w]=(qSet[w]||0)+1});
+  ct.forEach(function(w){cSet[w]=(cSet[w]||0)+1});
+  var shared=0;Object.keys(qSet).forEach(function(w){if(cSet[w])shared+=Math.min(qSet[w],cSet[w])});
+  var jaccard=shared/(qt.length+ct.length-shared);
+
+  // 词序 LCS
   var lcs=function(a,b){
     var m=a.length,n=b.length,dp=[];
     for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0}
     for(var i=1;i<=m;i++)for(var j=1;j<=n;j++)dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]);
     return dp[m][n];
   };
-  var seqScore=lcs(qw,cw)/Math.max(qw.length,cw.length);
+  var seqRatio=lcs(qt,ct)/Math.max(qt.length,ct.length);
+
+  // 长度惩罚
   var lenRatio=Math.min(q.length,c.length)/Math.max(q.length,c.length);
-  if(lenRatio<0.4)lenRatio*=0.5;
-  var score=(wordF1*40+seqScore*40+lenRatio*20)*100;
-  return Math.min(Math.round(score*10)/10,99.9);
+
+  var raw=jaccard*50+seqRatio*30+lenRatio*20;
+  // 封顶70，不是完全匹配就不可能高分
+  return Math.min(Math.round(raw*70)/10,70);
 }
 async function lookupDOI(title){
   var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false};
