@@ -188,8 +188,10 @@
   .stc{cursor:pointer;user-select:none}
   .stc:active{transform:scale(.97)}
 
-  .btn-retry{background:none;border:1px solid var(--border);cursor:pointer;font-size:13px;padding:1px 6px;border-radius:4px;color:var(--text-3);transition:all .15s;font-family:var(--font);line-height:1.4}
+  .btn-retry{background:none;border:1px solid var(--border);cursor:pointer;font-size:12px;padding:2px 7px;border-radius:4px;color:var(--text-3);transition:all .15s;font-family:var(--font);line-height:1.4;white-space:nowrap}
   .btn-retry:hover{color:var(--brand-600);border-color:var(--brand-300);background:var(--brand-50)}
+  .btn-promote{border:1px solid var(--green-500);cursor:pointer;font-size:12px;padding:2px 7px;border-radius:4px;color:var(--green-600);background:var(--green-50);transition:all .15s;font-family:var(--font);line-height:1.4;white-space:nowrap}
+  .btn-promote:hover{background:var(--green-500);color:#fff}
 
   /* help button & dropdown */
   .help-btn{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;padding:0}
@@ -934,7 +936,7 @@ function renderResults(results){
     var canPromote=r._retried&&r.is_found&&(!r._origFound||r._origConf<90);
     var statusCell='';
     if(r.is_found&&r.confidence>=90&&!r._retried)statusCell='✓';
-    else if(canPromote)statusCell='✓ <button class="btn-retry" style="color:var(--green-600);border-color:var(--green-500)" onclick="promoteToHigh('+i+')" title="移入高置信度">→ 高置信度</button>';
+    else if(canPromote)statusCell='<button class="btn-promote" onclick="promoteToHigh('+i+')" title="确认移入高置信度">✓ 移入高置信度</button>';
     else statusCell=(r.is_found?'✓':'<span class="t3">未找到</span>')+(needRetry?' <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>':'');
     h+='<tr data-conf="'+confClass+'" data-found="'+(displayFound?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
@@ -964,9 +966,12 @@ function setFilter(f){
 
 async function retrySingleQuery(idx,btn){
   if(!ST.results||!ST.results[idx])return;
-  var old=ST.results[idx];btn.textContent='...';btn.disabled=true;
+  var old=ST.results[idx];
+  // 该行显示转圈
+  var row=document.querySelector('tr[data-row="'+idx+'"]');
+  if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
+  if(btn){btn.textContent='...';btn.disabled=true}
   var r=await lookupDOI(old.query_title);
-  // 保留原始分类，标记已重试
   r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found;
   ST.results[idx]=r;
   renderResults(ST.results);
@@ -992,9 +997,15 @@ async function batchRetry(filter){
   toast('正在重试 '+targets.length+' 条...');
   for(var t=0;t<targets.length;t++){
     var idx=targets[t],old=ST.results[idx];
+    // 该行显示转圈
+    var row=document.querySelector('tr[data-row="'+idx+'"]');
+    if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
     var r=await lookupDOI(old.query_title);
     r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found;
     ST.results[idx]=r;
+    // 即时更新该行
+    if(row){var td=row.querySelector('td:last-child');if(td&&!r.is_found)td.innerHTML='<span class="t3">未找到</span> <button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>';
+    else if(td&&r.is_found)td.innerHTML='<button class="btn-promote" onclick="promoteToHigh('+idx+')" title="确认移入高置信度">✓ 移入高置信度</button>'}
   }
   renderResults(ST.results);
   if(ST.resultFilter)setFilter(ST.resultFilter);
