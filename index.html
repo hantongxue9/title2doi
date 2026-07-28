@@ -188,6 +188,9 @@
   .stc{cursor:pointer;user-select:none}
   .stc:active{transform:scale(.97)}
 
+  .btn-retry{background:none;border:1px solid var(--border);cursor:pointer;font-size:13px;padding:1px 6px;border-radius:4px;color:var(--text-3);transition:all .15s;font-family:var(--font);line-height:1.4}
+  .btn-retry:hover{color:var(--brand-600);border-color:var(--brand-300);background:var(--brand-50)}
+
   /* help button & dropdown */
   .help-btn{width:30px;height:30px;border-radius:50%;border:none;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;padding:0}
   .help-btn:hover{background:rgba(255,255,255,.1);color:#fff}
@@ -921,7 +924,8 @@ function renderResults(results){
     var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
-    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
+    var statusCell=r.is_found?'✓':'<span class="t3">未找到</span> <button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻</button>';
+    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
   ST.resultFilter='all';
@@ -939,6 +943,17 @@ function setFilter(f){
     if(f==='all'){tr.style.display='';return}
     tr.style.display=tr.getAttribute('data-conf')===f?'':'none';
   });
+}
+
+async function retrySingleQuery(idx,btn){
+  if(!ST.results||!ST.results[idx])return;
+  var orig=btn.textContent;btn.textContent='...';btn.disabled=true;
+  var r=await lookupDOI(ST.results[idx].query_title);
+  ST.results[idx]=r;
+  // 原地重渲染整表（保持筛选状态）
+  renderResults(ST.results);
+  if(ST.resultFilter&&ST.resultFilter!=='all')setFilter(ST.resultFilter);
+  toast(r.is_found?'重试成功 ✓':'仍未找到');
 }
 
 function copySingleDOI(doi,btn){
