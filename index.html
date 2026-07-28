@@ -775,7 +775,7 @@ function matchScore(query,candidate){
 async function lookupDOI(title){
   var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false};
   try{
-    var resp=await fetch('https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=3');
+    var resp=await fetch('https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=5');
     if(!resp.ok){res.error='Crossref 请求失败';return res}
     var items=((await resp.json()).message||{}).items||[];
     if(!items.length){res.error='未找到匹配记录';return res}
@@ -1028,23 +1028,19 @@ async function batchRetry(filter){
     if(cls===filter)targets.push(i);
   });
   if(!targets.length){toast('没有可重试的条目');return}
-  var promoted=0;
   toast('正在重试 '+targets.length+' 条...');
   for(var t=0;t<targets.length;t++){
     var idx=targets[t],old=ST.results[idx];
-    // 该行显示转圈
     var row=document.querySelector('tr[data-row="'+idx+'"]');
     if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
-    var r=await lookupDOI(old.query_title);
-    if(r.is_found&&r.confidence>=90)promoted++;
-    ST.results[idx]=r;
-    if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML=(r.is_found&&r.confidence>=90)?'✓':'<button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>'}
+    ST.results[idx]=await lookupDOI(old.query_title);
+    if(row){var td=row.querySelector('td:last-child'),nr=ST.results[idx];if(td)td.innerHTML=(nr.is_found&&nr.confidence>=90)?'✓':'<button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>'}
   }
   var savedFilter=ST.resultFilter;
   renderResults(ST.results);
   if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
   updateBatchBtn();
-  toast('批量重试完成，'+promoted+' 条移入高置信度');
+  toast('批量重试完成');
 }
 
 function copySingleDOI(doi,btn){
