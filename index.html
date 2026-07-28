@@ -981,13 +981,14 @@ function updateBatchBtn(){
 }
 function batchPromote(filter){
   if(!ST.results)return;
-  var count=0;
+  var count=0,savedFilter=ST.resultFilter;
   ST.results.forEach(function(r){
     var cls=r.is_found?(r.confidence>=90?'high':'low'):'none';
     if(cls===filter&&r._retried&&r.is_found){r.confidence=91;r.confidence_level='高';r.is_found=true;r._retried=false;r._origConf=null;r._origFound=null;count++}
   });
   renderResults(ST.results);
-  if(ST.resultFilter)setFilter(ST.resultFilter);
+  if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
+  updateBatchBtn();
   toast('已移入 '+count+' 条至高置信度 ✓');
 }
 
@@ -997,8 +998,7 @@ async function onBatchAction(){
 
 async function retrySingleQuery(idx,btn){
   if(!ST.results||!ST.results[idx])return;
-  var old=ST.results[idx];
-  // 该行显示转圈
+  var old=ST.results[idx],savedFilter=ST.resultFilter;
   var row=document.querySelector('tr[data-row="'+idx+'"]');
   if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
   if(btn){btn.textContent='...';btn.disabled=true}
@@ -1006,16 +1006,16 @@ async function retrySingleQuery(idx,btn){
   r._retried=true;r._origConf=old.confidence;r._origFound=old.is_found;
   ST.results[idx]=r;
   renderResults(ST.results);
-  if(ST.resultFilter&&ST.resultFilter!=='all')setFilter(ST.resultFilter);
+  if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
   toast(r.is_found&&!old.is_found?'重试查到 DOI，可点击「移入高置信度」':(r.is_found?'重试完成':'仍未找到'));
 }
 function promoteToHigh(idx){
   if(!ST.results||!ST.results[idx])return;
-  var r=ST.results[idx];
+  var r=ST.results[idx],savedFilter=ST.resultFilter;
   r.confidence=91;r.confidence_level='高';r.is_found=true;
   r._retried=false;r._origConf=null;r._origFound=null;
   renderResults(ST.results);
-  if(ST.resultFilter&&ST.resultFilter!=='all')setFilter(ST.resultFilter);
+  if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
   updateBatchBtn();
   toast('已移入高置信度 ✓');
 }
@@ -1040,8 +1040,9 @@ async function batchRetry(filter){
     if(row){var td=row.querySelector('td:last-child');if(td&&!r.is_found)td.innerHTML='<button class="btn-retry" onclick="retrySingleQuery('+idx+',this)" title="重试此条">↻</button>';
     else if(td&&r.is_found)td.innerHTML='<button class="btn-promote" onclick="promoteToHigh('+idx+')" title="确认移入高置信度">✓ 移入高置信度</button>'}
   }
+  var savedFilter=ST.resultFilter;
   renderResults(ST.results);
-  if(ST.resultFilter)setFilter(ST.resultFilter);
+  if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
   updateBatchBtn();
   toast('批量重试完成，共 '+targets.length+' 条');
 }
