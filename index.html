@@ -339,10 +339,13 @@ function goStep(n){
    ═══════════════════════════════════════════════════════════ */
 function toggleSettings(){$('set-panel').classList.toggle('open')}
 function loadSettings(){
-  var cfg=getConfig();
-  $('cfg-api-base').value=(INJECTED.apiBase||localStorage.getItem('t2d_apiBase')||'');
-  $('cfg-api-key').value=(localStorage.getItem('t2d_apiKey')||'');
-  $('cfg-model').value=(INJECTED.model||localStorage.getItem('t2d_model')||'');
+  // 不预填值——用户无感知使用注入的默认配置
+  // 只在用户主动打开高级设置时才显示他们之前保存的值
+  var saved={};
+  try{saved=JSON.parse(localStorage.getItem('t2d_cfg')||'{}')}catch(e){}
+  if(saved.apiBase)$('cfg-api-base').value=saved.apiBase;
+  if(saved.apiKey)$('cfg-api-key').value=saved.apiKey;
+  if(saved.model)$('cfg-model').value=saved.model;
   updateSetBtn();
 }
 function saveSettings(){
@@ -437,7 +440,14 @@ async function llmParse(text,apiBase,apiKey,model){
 function parseLLMResponse(content){
   content=content.trim().replace(/^```[\w]*\s*\n?/,'').replace(/\n?```\s*$/,'');
   var titles=[],seen={};
-  content.split('\n').forEach(function(line){line=line.trim();if(!line)return;line=line.replace(/^[\s]*[\d]+[.\、\)）]\s*/,'').replace(/^[\s]*[-–—•·]\s*/,'').replace(/^["'""''「」『』]+/,'').replace(/["'""''「」『』]+$/,'');if(line.length<3)return;var n=line.toLowerCase().replace(/\s/g,'');if(!seen[n]){seen[n]=1;titles.push(line)}});
+  content.split('\n').forEach(function(line){
+    line=line.trim();if(!line)return;
+    line=line.replace(/^\s*\d+[.\)、]\s*/,'').replace(/^\s*[-–—•·]\s*/,'');
+    line=line.replace(/^["'""''「」『』]+/,'').replace(/["'""''「」『』]+$/,'');
+    if(line.length<3)return;
+    var n=line.toLowerCase().replace(/\s/g,'');
+    if(!seen[n]){seen[n]=1;titles.push(line)}
+  });
   return titles;
 }
 
