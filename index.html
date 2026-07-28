@@ -165,6 +165,28 @@
   .filter-note{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);margin-top:8px}
   .filter-note svg{flex-shrink:0;opacity:.6}
 
+  /* editable preview table */
+  .pv-wrap{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+  .pv-table{width:100%;border-collapse:collapse;font-size:13px}
+  .pv-table td{padding:6px 10px;border-bottom:1px solid var(--border)}
+  .pv-table tr:last-child td{border-bottom:none}
+  .pv-num{width:44px;text-align:center;color:var(--text-3);font-size:12px;font-weight:500}
+  .pv-cell{padding:0!important}
+  .pv-cell div{outline:none;padding:8px 10px;min-height:34px;transition:background .2s;word-break:break-word;line-height:1.55}
+  .pv-cell div:focus{background:var(--brand-50)}
+  .pv-cell div:empty::before{content:'双击编辑标题...';color:var(--text-3);font-style:italic}
+  .pv-act{width:36px;text-align:center}
+  .pv-del{background:none;border:none;cursor:pointer;color:var(--text-3);font-size:17px;padding:2px 6px;border-radius:4px;transition:all .15s;line-height:1}
+  .pv-del:hover{color:var(--red-500);background:var(--red-50)}
+  .pv-empty{text-align:center;padding:32px 20px;color:var(--text-3);font-size:13px}
+  .pv-add-row td{text-align:center;padding:8px}
+  .pv-add-row button{background:none;border:none;color:var(--brand-600);cursor:pointer;font-size:13px;font-weight:500;font-family:var(--font);padding:4px 12px;border-radius:4px;transition:all .15s}
+  .pv-add-row button:hover{background:var(--brand-50)}
+
+  /* stat filter */
+  .stc.filter-on{box-shadow:0 0 0 2px var(--brand-500);border-color:var(--brand-500)}
+  .stc{cursor:pointer;user-select:none}
+
   .tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;letter-spacing:.1px}
   .tag-hi{background:var(--green-50);color:var(--green-700)}.tag-md{background:var(--amber-50);color:var(--amber-600)}
   .tag-lo{background:var(--red-50);color:var(--red-600)}.tag-no{background:var(--bg);color:var(--text-3)}
@@ -259,8 +281,9 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
 
 <!-- STEP 2 -->
 <div class="pane" id="pane-2"><div class="card"><div class="card-inner">
-  <div class="row-sb" style="align-items:center"><div><div class="card-ttl">确认标题</div><p class="card-sub" style="margin-bottom:0">以下为解析结果，可在查询前增删修改。每行一个标题。</p></div><span class="t3" id="title-count" style="font-size:12.5px"></span></div>
-  <textarea id="preview-text" style="min-height:200px;margin-top:16px"></textarea>
+  <div class="row-sb" style="align-items:center"><div><div class="card-ttl">确认标题</div><p class="card-sub" style="margin-bottom:0">以下为解析结果，点击单元格直接编辑，支持增删修改。</p></div><span class="t3" id="title-count" style="font-size:12.5px"></span></div>
+  <div class="pv-wrap" id="preview-table-wrap" style="margin-top:12px"></div>
+  <button class="btn btn-4 btn-sm mt-2" onclick="addPreviewRow()">+ 添加一行</button>
   <div class="btn-row split btns">
     <button class="btn btn-4" onclick="goStep(1)">← 返回修改</button>
     <button class="btn btn-2 btn-lg" id="btn-lookup" onclick="doLookup()">批量查询 DOI →</button>
@@ -665,6 +688,15 @@ async function doParse(){
 
   var text=$('raw-text').value;if(!text.trim()){setMsg('parse-msg','err','请先输入标题文本');return}
 
+  // Smart detection: 如果输入已是干净的按行标题，直接跳过 LLM
+  if(isLLM && isCleanTitles(text)){
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span>解析中...';
+    try{var titles=parseText(text);showPreview(titles,'智能检测：输入已是干净标题，跳过 AI，直接使用')}
+    catch(e){setMsg('parse-msg','err',e.message)}
+    finally{btn.disabled=false;btn.innerHTML='解析标题'}
+    return;
+  }
+
   if(isLLM){
     var cfg=getConfig();if(!cfg.apiKey){setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写。');return}
     btn.disabled=true;btn.innerHTML='<span class="spin"></span>AI 分析中...';
@@ -681,14 +713,51 @@ async function doParse(){
   }
 }
 
-function showPreview(titles,source){$('preview-text').value=titles.join('\n');$('title-count').textContent='共 '+titles.length+' 个标题  ·  '+source;goStep(2)}
+function showPreview(titles,source){ST.previewTitles=titles;renderPreviewTable();$('title-count').textContent='共 '+titles.length+' 个标题  ·  '+source;goStep(2)}
 
 /* ═══════════════════════════════════════════════════════════
    Lookup Action (Step 2 → 3)
    ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   Smart Detection: 输入是否已是干净的标题列表
+   ═══════════════════════════════════════════════════════════ */
+function isCleanTitles(text){
+  var lines=text.split('\n').filter(function(l){return l.trim()}),clean=0;
+  if(!lines.length)return false;
+  for(var i=0;i<lines.length;i++){
+    var l=lines[i].trim();
+    if(/\b(19|20)\d{2}\b/.test(l))continue;       // has year → citation
+    if(/\d+\s*\(\d+\)/.test(l))continue;           // vol(issue) → citation
+    if(/et\s+al/i.test(l))continue;                // et al. → citation
+    if(/10\.\d{4,}/.test(l))continue;             // DOI
+    if((l.match(/,/g)||[]).length>3)continue;     // too many commas → citation
+    clean++;
+  }
+  return (clean/lines.length)>=0.7;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Editable Preview Table
+   ═══════════════════════════════════════════════════════════ */
+function renderPreviewTable(){
+  var titles=ST.previewTitles||[],wrap=$('preview-table-wrap');
+  if(!titles.length){wrap.innerHTML='<div class="pv-empty">暂无标题，点击下方「+ 添加一行」手动输入</div>';$('title-count').textContent='共 0 个标题';return}
+  var h='<table class="pv-table"><tbody>';
+  for(var i=0;i<titles.length;i++){
+    h+='<tr><td class="pv-num">'+(i+1)+'</td><td class="pv-cell"><div contenteditable="true" data-idx="'+i+'" oninput="onPreviewEdit('+i+',this)">'+esc(titles[i])+'</div></td><td class="pv-act"><button class="pv-del" onclick="deletePreviewRow('+i+')" title="删除此行">&times;</button></td></tr>';
+  }
+  h+='</tbody></table>';
+  wrap.innerHTML=h;
+  $('title-count').textContent='共 '+titles.length+' 个标题';
+}
+function onPreviewEdit(idx,el){if(ST.previewTitles)ST.previewTitles[idx]=el.textContent.trim()}
+function addPreviewRow(){if(!ST.previewTitles)ST.previewTitles=[];ST.previewTitles.push('');renderPreviewTable();var last=document.querySelector('.pv-cell div:last-child');if(last)last.focus()}
+function deletePreviewRow(idx){ST.previewTitles.splice(idx,1);renderPreviewTable()}
+function getPreviewTitles(){return (ST.previewTitles||[]).map(function(s){return (s||'').trim()}).filter(Boolean)}
+
 async function doLookup(){
   clearMsg('lookup-msg');$('lookup-prog').classList.remove('on');
-  var btn=$('btn-lookup'),raw=$('preview-text').value,titles=raw.split('\n').map(function(s){return s.trim()}).filter(Boolean);
+  var btn=$('btn-lookup'),titles=getPreviewTitles();
   if(!titles.length){setMsg('lookup-msg','err','标题列表为空');return}
   if(titles.length>100&&!confirm('共 '+titles.length+' 条，预计需要 '+Math.round(titles.length*.5)+' 秒左右。是否继续？'))return;
 
@@ -712,22 +781,43 @@ async function doLookup(){
    Render Results
    ═══════════════════════════════════════════════════════════ */
 function renderResults(results){
+  ST.results=results;
   var total=results.length,found=0,high=0,mid=0,low=0;
   results.forEach(function(r){if(r.is_found){found++;if(r.confidence>=90)high++;else if(r.confidence>=70)mid++;else low++}});
-  $('stats-row').innerHTML='<div class="stc accent"><div class="n">'+total+'</div><div class="l">总计</div></div><div class="stc g"><div class="n">'+found+'</div><div class="l">找到 DOI</div></div><div class="stc g"><div class="n">'+high+'</div><div class="l">高置信度</div></div><div class="stc y"><div class="n">'+mid+'</div><div class="l">中置信度</div></div><div class="stc r"><div class="n">'+low+'</div><div class="l">低置信度</div></div>';
+  $('stats-row').innerHTML=
+    '<div class="stc accent filter-on" data-filter="all" onclick="setFilter(\'all\')"><div class="n">'+total+'</div><div class="l">总计</div></div>'+
+    '<div class="stc g" data-filter="found" onclick="setFilter(\'found\')"><div class="n">'+found+'</div><div class="l">找到 DOI</div></div>'+
+    '<div class="stc g" data-filter="high" onclick="setFilter(\'high\')"><div class="n">'+high+'</div><div class="l">高置信度</div></div>'+
+    '<div class="stc y" data-filter="mid" onclick="setFilter(\'mid\')"><div class="n">'+mid+'</div><div class="l">中置信度</div></div>'+
+    '<div class="stc r" data-filter="low" onclick="setFilter(\'low\')"><div class="n">'+low+'</div><div class="l">低置信度</div></div>';
 
   var h='<table><thead><tr><th>#</th><th>原始标题</th><th>DOI</th><th>匹配标题</th><th>置信</th><th>状态</th></tr></thead><tbody>';
   results.forEach(function(r,i){
+    var confClass='';if(r.is_found){if(r.confidence>=90)confClass='high';else if(r.confidence>=70)confClass='mid';else confClass='low'}else confClass='none';
     var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else if(r.confidence>=70)tag='<span class="tag tag-md">中</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a>':'—';
-    h+='<tr><td>'+(i+1)+'</td><td class="ct">'+esc(r.query_title)+'</td><td class="cd">'+doi+'</td><td class="ct">'+esc(r.matched_title||'—')+'</td><td>'+cf+' '+tag+'</td><td style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
+    h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'"><td>'+(i+1)+'</td><td class="ct">'+esc(r.query_title)+'</td><td class="cd">'+doi+'</td><td class="ct">'+esc(r.matched_title||'—')+'</td><td>'+cf+' '+tag+'</td><td style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
+  ST.resultFilter='all';
 
   // Only high-confidence DOIs in output
   var highDOIs=results.filter(function(r){return r.is_found&&r.confidence>=90}).map(function(r){return r.doi});
   $('doi-output').textContent=highDOIs.join('\n')||'';
+}
+
+function setFilter(f){
+  ST.resultFilter=f;
+  // Update stat card active states
+  document.querySelectorAll('.stc').forEach(function(el){el.classList.toggle('filter-on',el.getAttribute('data-filter')===f)});
+  // Filter table rows
+  var rows=document.querySelectorAll('#results-table tbody tr');
+  rows.forEach(function(tr){
+    if(f==='all'){tr.style.display='';return}
+    if(f==='found'){tr.style.display=tr.getAttribute('data-found')==='1'?'':'none';return}
+    tr.style.display=tr.getAttribute('data-conf')===f?'':'none';
+  });
 }
 
 function copyDOI(){
@@ -743,7 +833,7 @@ function exportExcel(){
   try{genExcel(ST.results);toast('已导出 '+high.length+' 条高置信度 DOI')}catch(e){toast('导出失败: '+e.message)}
 }
 
-function resetAll(){stopParseAnim();$('preview-text').value='';$('title-count').textContent='';clearMsg('parse-msg');clearMsg('lookup-msg');ST.results=null;goStep(1)}
+function resetAll(){stopParseAnim();ST.previewTitles=null;$('preview-table-wrap').innerHTML='';$('title-count').textContent='';clearMsg('parse-msg');clearMsg('lookup-msg');ST.results=null;goStep(1)}
 
 /* init */
 loadSettings();
