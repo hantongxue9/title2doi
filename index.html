@@ -716,21 +716,39 @@ function findTitleCol(data){
    DOI Lookup (Crossref)
    ═══════════════════════════════════════════════════════════ */
 function matchScore(query,candidate){
-  // 词级匹配 + 词序约束：同时要求词相同且顺序一致
   if(!candidate)return 0;
   var q=query.toLowerCase().trim(),c=candidate.toLowerCase().trim();
   if(q===c)return 100;
+
+  // 检测是否主要为中文（CJK字符占比>30%）
+  var cjkRe=/[一-鿿㐀-䶿]/g;
+  var qCJK=(q.match(cjkRe)||[]).length,cCJK=(c.match(cjkRe)||[]).length;
+  var isChinese=(qCJK/q.length>0.3)||(cCJK/c.length>0.3);
+
+  if(isChinese){
+    // 中文：字级二元组（bigram）Jaccard相似度
+    var bigrams=function(s){
+      var chars=s.replace(/[\s,;:.!?()\[\]{}""''\-–—]+/g,'').split('');
+      var bg=[];for(var i=0;i<chars.length-1;i++)bg.push(chars[i]+chars[i+1]);
+      return bg;
+    };
+    var qb=bigrams(q),cb=bigrams(c);
+    if(!qb.length||!cb.length)return 0;
+    var set={},shared=0;qb.forEach(function(b){set[b]=1});
+    cb.forEach(function(b){if(set[b])shared++});
+    var jaccard=shared/(qb.length+cb.length-shared);
+    var lenRatio=Math.min(q.length,c.length)/Math.max(q.length,c.length);
+    return Math.min(Math.round((jaccard*80+lenRatio*20)*1000)/10,99.9);
+  }
+
+  // 英文：词级匹配 + 词序约束
   var tokenize=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean)};
   var qw=tokenize(q),cw=tokenize(c);
   if(!qw.length||!cw.length)return 0;
-
-  // 1. 词级 F1（词是否出现）
   var matched=0,cwRemain=cw.slice();
   qw.forEach(function(w){var idx=cwRemain.indexOf(w);if(idx!==-1){matched++;cwRemain.splice(idx,1)}});
   var precision=matched/cw.length,recall=matched/qw.length;
   var wordF1=precision+recall>0?2*precision*recall/(precision+recall):0;
-
-  // 2. 词序相似度（最长公共子序列 / 最大长度）
   var lcs=function(a,b){
     var m=a.length,n=b.length,dp=[];
     for(var i=0;i<=m;i++){dp[i]=[];for(var j=0;j<=n;j++)dp[i][j]=0}
@@ -738,8 +756,6 @@ function matchScore(query,candidate){
     return dp[m][n];
   };
   var seqScore=lcs(qw,cw)/Math.max(qw.length,cw.length);
-
-  // 3. 综合：词匹配 40% + 词序 40% + 长度比 20%
   var lenRatio=Math.min(q.length,c.length)/Math.max(q.length,c.length);
   if(lenRatio<0.4)lenRatio*=0.5;
   var score=(wordF1*40+seqScore*40+lenRatio*20)*100;
