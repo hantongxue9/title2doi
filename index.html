@@ -716,15 +716,27 @@ function findTitleCol(data){
    DOI Lookup (Crossref)
    ═══════════════════════════════════════════════════════════ */
 function matchScore(query,candidate){
+  // 词级 F1 匹配：同时考虑精确率和召回率，比字符级严格得多
   if(!candidate)return 0;
   var q=query.toLowerCase().trim(),c=candidate.toLowerCase().trim();
   if(q===c)return 100;
-  if(q.indexOf(c)!==-1||c.indexOf(q)!==-1){var lr=Math.min(q.length,c.length)/Math.max(q.length,c.length);return Math.min(85+lr*10,98)}
-  var matches=0;for(var i=0;i<q.length;i++){if(c.indexOf(q[i])!==-1)matches++}
-  var ratio=(matches/Math.max(q.length,c.length))*100;
-  var t1=q.split(' ').sort().join(' '),t2=c.split(' ').sort().join(' '),tMatches=0;
-  for(var i=0;i<t1.length;i++){if(t2.indexOf(t1[i])!==-1)tMatches++}
-  return(tMatches/Math.max(t1.length,t2.length))*40+ratio*.6;
+  // Tokenize: split on whitespace and punctuation
+  var tokenize=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean)};
+  var qw=tokenize(q),cw=tokenize(c);
+  if(!qw.length||!cw.length)return 0;
+  // Count exact word matches (with multiplicity)
+  var matched=0,cwRemain=cw.slice();
+  qw.forEach(function(w){
+    var idx=cwRemain.indexOf(w);
+    if(idx!==-1){matched++;cwRemain.splice(idx,1)}
+  });
+  var precision=matched/cw.length,recall=matched/qw.length;
+  var f1=precision+recall>0?2*precision*recall/(precision+recall):0;
+  // Penalize extreme length mismatch
+  var lenPenalty=Math.min(q.length,c.length)/Math.max(q.length,c.length);
+  if(lenPenalty<0.4)lenPenalty=lenPenalty*0.5; // harsh penalty for big length gaps
+  var score=(f1*75+lenPenalty*25)*100;
+  return Math.min(Math.round(score*10)/10,99.9);
 }
 async function lookupDOI(title){
   var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false};
