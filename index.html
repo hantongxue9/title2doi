@@ -233,9 +233,9 @@
 <!-- Help dropdown -->
 <div class="help-drop" id="help-drop">
   <div class="help-title">使用说明</div>
+  <div class="help-item"><b>💡 建议</b><br>尽量使用粘贴纯文本的方式输入，准确度更高。文件上传需先提取文本，可能引入格式噪声。</div>
   <div class="help-item"><b>智能解析 (AI)</b><br>粘贴含作者、期刊、年份的引用文本，AI 自动提取标题。</div>
   <div class="help-item"><b>基础解析</b><br>每行一个标题的规范文本。也支持上传 Word/Excel 文件（自动识别标题列）。</div>
-  <div class="help-item"><b>💡 建议</b><br>尽量使用粘贴纯文本的方式输入，准确度更高。文件上传需先提取文本，可能引入格式噪声。</div>
   <div class="help-item"><b>置信度</b><br>≥90% 高置信度，可直接使用。<br>&lt;90% 低置信度，建议人工核实。</div>
   <div class="help-item" style="border-bottom:none"><b>未配置 API Key？</b><br>使用「基础解析」即可，DOI 查询不依赖 AI。</div>
 </div>
@@ -314,6 +314,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
   <div class="prog-wrap" id="lookup-prog">
     <div class="prog-text"><span class="prog-status"><span class="spin"></span><span id="lookup-status-text">正在查询...</span></span><span id="lookup-count-text" class="t3" style="font-size:12px">0/0</span></div>
     <div class="prog-bar"><div class="prog-fill" id="lookup-bar-fill" style="width:0%"></div></div>
+    <div class="tc mt-2"><button class="btn btn-4 btn-sm dn" id="cancel-lookup" onclick="cancelLookup()" style="color:var(--red-500)">取消查询</button></div>
   </div>
   <div class="msg" id="lookup-msg"></div>
 </div></div></div>
@@ -358,7 +359,7 @@ function getConfig(){
 /* ═══════════════════════════════════════════════════════════
    State
    ═══════════════════════════════════════════════════════════ */
-var ST={engine:'smart',tab:'text',step:1,results:null,animId:null};
+var ST={engine:'smart',tab:'text',step:1,results:null,animId:null,abortCtrl:null,_partialResults:[]};
 
 /* helpers */
 function $(id){return document.getElementById(id)}
@@ -684,9 +685,15 @@ async function lookupDOI(title){
   res.confidence_level=res.confidence>=90?'高':'低';
   return res;
 }
-async function batchLookup(titles,onProgress){
+async function batchLookup(titles,onProgress,abortSignal){
   var results=[],total=titles.length;
-  for(var i=0;i<total;i++){if(onProgress)onProgress(i+1,total,titles[i]);results.push(await lookupDOI(titles[i]));if(i<total-1)await sleep(300)}
+  ST._partialResults=[];
+  for(var i=0;i<total;i++){
+    if(abortSignal&&abortSignal.aborted)throw new DOMException('Aborted','AbortError');
+    if(onProgress)onProgress(i+1,total,titles[i]);
+    var r=await lookupDOI(titles[i]);results.push(r);ST._partialResults=results.slice();
+    if(i<total-1)await sleep(300);
+  }
   return results;
 }
 
@@ -812,13 +819,19 @@ function addPreviewRow(){if(!ST.previewTitles)ST.previewTitles=[];ST.previewTitl
 function deletePreviewRow(idx){ST.previewTitles.splice(idx,1);renderPreviewTable()}
 function getPreviewTitles(){return (ST.previewTitles||[]).map(function(s){return (s||'').trim()}).filter(Boolean)}
 
+function cancelLookup(){
+  if(ST.abortCtrl){ST.abortCtrl.abort();ST.abortCtrl=null}
+}
+
 async function doLookup(){
   clearMsg('lookup-msg');$('lookup-prog').classList.remove('on');
   var btn=$('btn-lookup'),titles=getPreviewTitles();
   if(!titles.length){setMsg('lookup-msg','err','标题列表为空');return}
   if(titles.length>100&&!confirm('共 '+titles.length+' 条，预计需要 '+Math.round(titles.length*.5)+' 秒左右。是否继续？'))return;
 
+  ST.abortCtrl=new AbortController();var signal=ST.abortCtrl.signal;
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>查询中...';
+  $('cancel-lookup').classList.remove('dn');
   setMsg('lookup-msg','inf','正在查询 Crossref 数据库...');
   startProgress('lookup-prog','lookup-bar-fill','lookup-status-text');
 
@@ -827,11 +840,16 @@ async function doLookup(){
       var pct=Math.round(cur/total*100);updateProgress('lookup-bar-fill','lookup-status-text',pct,'查询中 '+cur+'/'+total);
       $('lookup-count-text').textContent=Math.round((total-cur)*0.3)+'秒 剩余';
       btn.innerHTML='<span class="spin"></span>'+cur+'/'+total;
-    });
+    },signal);
     updateProgress('lookup-bar-fill','lookup-status-text',100,'查询完成');$('lookup-count-text').textContent='';
     ST.results=results;renderResults(results);goStep(3);
-  }catch(e){setMsg('lookup-msg','err','查询失败: '+e.message)}
-  finally{stopProgress('lookup-prog','lookup-bar-fill');btn.disabled=false;btn.innerHTML='批量查询 DOI →'}
+  }catch(e){
+    if(e.name==='AbortError'){setMsg('lookup-msg','inf','查询已取消。已完成的 '+ST._partialResults.length+' 条结果已保留。');ST.results=ST._partialResults;renderResults(ST._partialResults);goStep(3)}
+    else setMsg('lookup-msg','err','查询失败: '+e.message)
+  }finally{
+    stopProgress('lookup-prog','lookup-bar-fill');btn.disabled=false;btn.innerHTML='批量查询 DOI →';
+    $('cancel-lookup').classList.add('dn');ST.abortCtrl=null;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -852,7 +870,7 @@ function renderResults(results){
     var confClass='';if(r.is_found){if(r.confidence>=90)confClass='high';else confClass='low'}else confClass='none';
     var tag='';if(r.is_found){if(r.confidence>=90)tag='<span class="tag tag-hi">高</span>';else tag='<span class="tag tag-lo">低</span>'}else tag='<span class="tag tag-no">未找到</span>';
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
-    var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a>':'—';
+    var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
     h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'"><td>'+(i+1)+'</td><td class="ct">'+esc(r.query_title)+'</td><td class="cd">'+doi+'</td><td class="ct">'+esc(r.matched_title||'—')+'</td><td>'+cf+' '+tag+'</td><td style="font-size:12px;color:var(--text-3)">'+(r.error?esc(r.error):(r.is_found?'✓':''))+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
@@ -873,6 +891,11 @@ function setFilter(f){
   });
 }
 
+function copySingleDOI(doi,btn){
+  if(!doi)return;
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(doi).then(function(){var orig=btn.textContent;btn.textContent='✓';setTimeout(function(){btn.textContent=orig},1500)})}
+  else{toast(doi)}
+}
 function copyDOI(){
   var t=$('doi-output').textContent;if(!t){toast('无高置信度 DOI 可复制');return}
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast('已复制 '+t.split('\n').length+' 条 DOI')})}
@@ -891,6 +914,14 @@ function resetAll(){stopParseAnim();ST.previewTitles=null;$('preview-table-wrap'
 /* init */
 loadSettings();
 ['cfg-api-base','cfg-api-key','cfg-model'].forEach(function(id){$(id).addEventListener('input',updateSetBtn)});
+
+// Ctrl+Enter 快捷解析
+$('raw-text').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();doParse()}});
+
+// 自动暂存输入内容
+var savedInput=localStorage.getItem('t2d_input');
+if(savedInput){$('raw-text').value=savedInput}
+$('raw-text').addEventListener('input',function(){localStorage.setItem('t2d_input',$('raw-text').value)});
 </script>
 </body>
 </html>
