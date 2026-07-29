@@ -798,12 +798,14 @@ async function lookupDOI(title){
       };
       // 候选分两组：非预印本优先
       var norm=[],pre=[];
-      // 后缀标识 + 预印本标识：不影响排序，仅作为平局时轻微扣分
+      // 候选按分排序，原始分数
       var hasSuffix=function(doi){return /\.S\d{3}$/.test(doi||'')};
       var candidates=[];
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI||'';if(hasSuffix(doi))s-=0.5;if(isPreprint(item))s-=1;candidates.push({doi:doi,title:t,score:s})});
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI||'';candidates.push({doi:doi,title:t,score:s,suffix:hasSuffix(doi),preprint:isPreprint(item)})});
       candidates.sort(function(a,b){return b.score-a.score});
       best=candidates[0];bestScore=best.score;
+      // 多候选时，如果最高分是预印本/有后缀且第二名分数接近（差<1），换用第二名
+      if(candidates.length>1&&(best.preprint||best.suffix)&&(best.score-candidates[1].score)<1){best=candidates[1];bestScore=best.score}
       var pool=norm.length?norm:pre;
       pool.sort(function(a,b){return b.score-a.score});
       best=pool[0];bestScore=best.score;
