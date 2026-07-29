@@ -787,8 +787,17 @@ async function lookupDOI(title){
       if(!resp.ok){if(attempt===0){await sleep(500);continue};res.error='Crossref 请求失败';return res}
       var items=((await resp.json()).message||{}).items||[];
       if(!items.length){res.error='未找到匹配记录';return res}
-      var best=null,bestScore=0;
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s}}});
+      // 预印本识别：DOI前缀 + 期刊名关键词
+      var isPre=function(item){
+        var d=(item.DOI||'').toLowerCase();
+        if(/^10\.(2139|48550|1101|31219)\//.test(d))return true;
+        var ct=((item['container-title']||[])[0]||'').toLowerCase();
+        return /preprint|ssrn|arxiv|biorxiv|research\s*square/.test(ct);
+      };
+      var best=null,bestScore=0,norm=[],pre=[];
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var e={doi:item.DOI,title:t,score:s};(isPre(item)?pre:norm).push(e)});
+      var pool=norm.length?norm:pre;
+      pool.forEach(function(e){if(e.score>bestScore){bestScore=e.score;best=e}});
       if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
       else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
       break;
