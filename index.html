@@ -794,10 +794,9 @@ async function lookupDOI(title){
         var ct=((item['container-title']||[])[0]||'').toLowerCase();
         return /preprint|ssrn|arxiv|biorxiv|research\s*square/.test(ct);
       };
-      var hasSuf=function(doi){return /\.S\d{3}$/.test(doi||'')};
-      var best=null,bestScore=0,clean=[],suf=[],pre=[];
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var e={doi:item.DOI,title:t,score:s};if(isPre(item))pre.push(e);else if(hasSuf(item.DOI))suf.push(e);else clean.push(e)});
-      var pool=clean.length?clean:(suf.length?suf:pre);
+      var best=null,bestScore=0,norm=[],pre=[];
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var e={doi:item.DOI,title:t,score:s};(isPre(item)?pre:norm).push(e)});
+      var pool=norm.length?norm:pre;
       pool.forEach(function(e){if(e.score>bestScore){bestScore=e.score;best=e}});
       if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
       else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
