@@ -798,7 +798,7 @@ async function lookupDOI(title){
       };
       // 候选分两组：非预印本优先
       var norm=[],pre=[];
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI;if(doi)doi=doi.replace(/\.(S\d+|e\d{3,}|s\d{3,})$/,'');(isPreprint(item)?pre:norm).push({doi:doi,title:t,score:s})});
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI;if(doi&&/^10\.\d{4,}\//.test(doi))doi=doi.replace(/\.S\d{3}$/,'');(isPreprint(item)?pre:norm).push({doi:doi,title:t,score:s})});
       var pool=norm.length?norm:pre;
       pool.sort(function(a,b){return b.score-a.score});
       best=pool[0];bestScore=best.score;
