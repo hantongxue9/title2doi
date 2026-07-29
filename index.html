@@ -788,7 +788,7 @@ async function lookupDOI(title){
       var items=((await resp.json()).message||{}).items||[];
       if(!items.length){res.error='未找到匹配记录';return res}
       var best=null,bestScore=0;
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s}}});
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI;if(doi)doi=doi.replace(/\.S\d{3,}$/,'');if(s>bestScore){bestScore=s;best={doi:doi,title:t,score:s}}});
       if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
       else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
       break;
