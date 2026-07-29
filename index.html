@@ -798,7 +798,14 @@ async function lookupDOI(title){
       };
       // 候选分两组：非预印本优先
       var norm=[],pre=[];
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI;if(doi&&/^10\.\d{4,}\//.test(doi))doi=doi.replace(/\.S\d{3}$/,'');(isPreprint(item)?pre:norm).push({doi:doi,title:t,score:s})});
+      // 补充材料后缀标识
+      var hasSuffix=function(doi){return /\.S\d{3}$/.test(doi||'')};
+      // 候选分三组：非预印本无后缀 > 非预印本有后缀 > 预印本
+      var normClean=[],normSuffix=[],pre=[];
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI||'';var entry={doi:doi,title:t,score:s};if(isPreprint(item))pre.push(entry);else if(hasSuffix(doi))normSuffix.push(entry);else normClean.push(entry)});
+      var pool=normClean.length?normClean:(normSuffix.length?normSuffix:pre);
+      pool.sort(function(a,b){return b.score-a.score});
+      best=pool[0];bestScore=best.score;
       var pool=norm.length?norm:pre;
       pool.sort(function(a,b){return b.score-a.score});
       best=pool[0];bestScore=best.score;
