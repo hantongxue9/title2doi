@@ -722,31 +722,37 @@ function matchScore(query,candidate){
   var q=norm(query),c=norm(candidate);
   if(!q||!c)return 0;
 
+  // 英文停用词（a/an/the 经常被省略或添加，不应影响匹配）
+  var STOP={'a':1,'an':1,'the':1};
+  var rmStop=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(function(w){return !STOP[w]}).join(' ')};
+
   // 完全一致（忽略大小写和空白差异）= 100
   if(q===c)return 100;
 
-  // 去标点后一致 = 98（仅标点差异）
+  // 去停用词后一致 = 97（仅 a/an/the 差异）
+  if(rmStop(q)===rmStop(c))return 97;
+
+  // 去标点后一致 = 96（仅标点差异）
   var stripPunct=function(s){return s.replace(/[^a-z0-9一-鿿]/g,'')};
-  if(stripPunct(q)===stripPunct(c)&&Math.abs(q.length-c.length)<10)return 98;
+  if(stripPunct(q)===stripPunct(c)&&Math.abs(q.length-c.length)<10)return 96;
 
   // 严格计算：中文二元组，英文词级，上限不同
   var hasCJK=/[一-鿿]/.test(q)||/[一-鿿]/.test(c);
   var qt,ct,maxScore;
 
   if(hasCJK){
-    // 中文：二元组（bigram），相邻两字组成一个token
     var bigrams=function(s){
       var chars=s.replace(/[\s,;:.!?()\[\]{}""''\-–—]+/g,'').split('');
       var bg=[];for(var i=0;i<chars.length-1;i++)bg.push(chars[i]+chars[i+1]);
       return bg;
     };
     qt=bigrams(q);ct=bigrams(c);
-    maxScore=50; // 中文封顶50，不是完全一致就不可能高
+    maxScore=50;
   }else{
-    // 英文：词级token
-    var tk=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(Boolean)};
+    // 英文词级token，过滤停用词
+    var tk=function(s){return s.split(/[\s,;:.!?()\[\]{}""''\-–—]+/).filter(function(w){return !STOP[w]})};
     qt=tk(q);ct=tk(c);
-    maxScore=70; // 英文封顶70，允许词序微调
+    maxScore=70;
   }
   if(!qt.length||!ct.length)return 0;
 
