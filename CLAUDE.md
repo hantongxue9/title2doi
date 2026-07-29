@@ -37,7 +37,7 @@ USTC Lib · Han · 查收查引辅助工具
 
 三层优先级：前端高级设置 > GitHub Secrets > 代码默认
 
-默认：`https://api.deepseek.com/v1/chat/completions` / `deepseek-chat`
+默认：`https://api.deepseek.com/v1/chat/completions` / `deepseek-v4-flash`
 
 ## 验证
 

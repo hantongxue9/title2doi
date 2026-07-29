@@ -4,5 +4,5 @@
 window.T2D_CONFIG = {
   apiBase: 'https://api.deepseek.com/v1/chat/completions',
   apiKey: '',
-  model: 'deepseek-chat'
+  model: 'deepseek-v4-flash'
 };

@@ -279,7 +279,7 @@
     <div class="set-grid">
       <div class="full"><label class="fl">API 地址 <span class="opt">（留空使用默认）</span></label><input type="text" id="cfg-api-base" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
       <div class="full"><label class="fl">API Key <span class="opt">（留空使用服务器默认）</span></label><input type="password" id="cfg-api-key" placeholder="sk-..."></div>
-      <div><label class="fl">模型 <span class="opt">（留空使用默认）</span></label><input type="text" id="cfg-model" placeholder="deepseek-chat"></div>
+      <div><label class="fl">模型 <span class="opt">（留空使用默认）</span></label><input type="text" id="cfg-model" placeholder="deepseek-v4-flash"></div>
       <div style="display:flex;align-items:flex-end;gap:8px"><button class="btn btn-3 btn-sm" onclick="saveSettings()" style="flex:1">保存</button><button class="btn btn-4 btn-sm" onclick="resetSettings()" style="flex:1">清除</button></div>
     </div>
   </div>
@@ -368,7 +368,7 @@ Smith J, Brown K. A Study on Machine Learning Applications. Journal of AI, 2020,
 /* ═══════════════════════════════════════════════════════════
    Config
    ═══════════════════════════════════════════════════════════ */
-var DEFAULTS={apiBase:'https://api.deepseek.com/v1/chat/completions',apiKey:'',model:'deepseek-chat'};
+var DEFAULTS={apiBase:'https://api.deepseek.com/v1/chat/completions',apiKey:'',model:'deepseek-v4-flash'};
 var INJECTED=(typeof window.T2D_CONFIG!=='undefined')?window.T2D_CONFIG:{};
 function getConfig(){
   var s={};

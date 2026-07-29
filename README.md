@@ -42,7 +42,7 @@ DOI 匹配按标题文本相似度分为两档：
 |--------|------|
 | `LLM_API_BASE` | `https://api.deepseek.com/v1/chat/completions` |
 | `LLM_API_KEY` | `sk-...` |
-| `LLM_MODEL` | `deepseek-chat` |
+| `LLM_MODEL` | `deepseek-v4-flash` |
 
 用户可在页面高级设置中覆盖默认配置。
 

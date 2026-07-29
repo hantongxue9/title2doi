@@ -29,8 +29,8 @@ TITLE_COLUMN_KEYWORDS = [
 # OpenAI 兼容 API 地址（DeepSeek 官方 API）
 LLM_DEFAULT_API_BASE = "https://api.deepseek.com/v1/chat/completions"
 
-# 默认模型（DeepSeek 官方：deepseek-chat 对应 V3）
-LLM_DEFAULT_MODEL = "deepseek-chat"
+# 默认模型（DeepSeek 官方：deepseek-v4-flash，速度快成本低）
+LLM_DEFAULT_MODEL = "deepseek-v4-flash"
 
 # LLM 请求配置
 LLM_TIMEOUT = 30       # 请求超时（秒）
