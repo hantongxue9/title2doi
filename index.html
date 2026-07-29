@@ -1080,10 +1080,6 @@ loadSettings();
 // Ctrl+Enter 快捷解析
 $('raw-text').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();doParse()}});
 
-// 自动暂存输入内容
-var savedInput=localStorage.getItem('t2d_input');
-if(savedInput){$('raw-text').value=savedInput}
-$('raw-text').addEventListener('input',function(){localStorage.setItem('t2d_input',$('raw-text').value)});
 </script>
 </body>
 </html>
