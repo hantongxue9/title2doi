@@ -788,27 +788,7 @@ async function lookupDOI(title){
       var items=((await resp.json()).message||{}).items||[];
       if(!items.length){res.error='未找到匹配记录';return res}
       var best=null,bestScore=0;
-      // 预印本识别：DOI前缀 + 期刊名关键词
-      var isPreprint=function(item){
-        var doi=(item.DOI||'').toLowerCase();
-        if(/^10\.2139\/|^10\.48550\/|^10\.1101\/|^10\.31219\//.test(doi))return true;
-        var ct=((item['container-title']||[])[0]||'').toLowerCase();
-        if(/preprint|ssrn|arxiv|biorxiv|research\s*square/.test(ct))return true;
-        return false;
-      };
-      // 候选分两组：非预印本优先
-      var norm=[],pre=[];
-      // 候选按分排序，原始分数
-      var hasSuffix=function(doi){return /\.S\d{3}$/.test(doi||'')};
-      var candidates=[];
-      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var doi=item.DOI||'';candidates.push({doi:doi,title:t,score:s,suffix:hasSuffix(doi),preprint:isPreprint(item)})});
-      candidates.sort(function(a,b){return b.score-a.score});
-      best=candidates[0];bestScore=best.score;
-      // 多候选时，如果最高分是预印本/有后缀且第二名分数接近（差<1），换用第二名
-      if(candidates.length>1&&(best.preprint||best.suffix)&&(best.score-candidates[1].score)<1){best=candidates[1];bestScore=best.score}
-      var pool=norm.length?norm:pre;
-      pool.sort(function(a,b){return b.score-a.score});
-      best=pool[0];bestScore=best.score;
+      items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);if(s>bestScore){bestScore=s;best={doi:item.DOI,title:t,score:s}}});
       if(best&&bestScore>=50){res.doi=best.doi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true}
       else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10}}
       break;
