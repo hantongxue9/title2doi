@@ -55,6 +55,18 @@ cp .env.example .env
 python run.py
 ```
 
+## 测试
+
+```bash
+# 单元测试（30 项，覆盖核心函数）
+python tests/run.py
+
+# 手动测试清单
+cat tests/CHECKLIST.md
+```
+
+CI 会在每次 push 时自动运行单元测试。
+
 ## 技术栈
 
 纯静态 SPA · Crossref API · DeepSeek LLM · SheetJS · Mammoth.js
