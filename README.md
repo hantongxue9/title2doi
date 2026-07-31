@@ -36,19 +36,17 @@ DOI 匹配按标题文本相似度分为两档：
 
 ### GitHub Pages（当前）
 
-仓库配置了 GitHub Actions，push master 自动部署。GitHub Pages 是公开静态站点，部署产物中的 `config.js` 可以被任何访问者查看，因此不要把个人 `LLM_API_KEY` 写入 Pages 构建产物。
+仓库配置了 GitHub Actions，push master 自动部署。部署时会从 GitHub Actions Secrets 生成 `config.js`，作为页面默认 LLM 配置：
 
-当前 Pages workflow 只生成公开默认配置：
+| Secret | 示例 |
+|--------|------|
+| `LLM_API_BASE` | `https://api.deepseek.com/v1/chat/completions` |
+| `LLM_API_KEY` | `sk-...` |
+| `LLM_MODEL` | `deepseek-v4-flash` |
 
-| 配置 | 默认值 |
-|------|--------|
-| `apiBase` | `https://api.deepseek.com/v1/chat/completions` |
-| `apiKey` | 空 |
-| `model` | `deepseek-v4-flash` |
+如果需要更换线上默认 Key，请到 GitHub 仓库的 `Settings` → `Secrets and variables` → `Actions` 修改 `LLM_API_KEY`，然后重新触发 Pages 部署（push master 或手动运行 workflow）。
 
-用户可在页面「高级设置」中填写自己的 API Key。该 Key 保存在用户浏览器本地，不会提交到仓库；但仍属于浏览器端使用方式，请只在可信设备上使用。
-
-如需由系统统一持有 API Key，请使用后端代理部署，不要通过 GitHub Pages 静态文件分发 Key。
+注意：GitHub Pages 是公开静态站点，部署产物中的 `config.js` 可以被访问者查看。当前方案的优点是打开即用；代价是默认 Key 属于前端公开配置。页面「高级设置」可覆盖默认配置，适合默认 Key 失效或用户希望使用自己的 Key 时使用。
 
 ### 本地 Python（备选）
 
