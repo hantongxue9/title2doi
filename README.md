@@ -36,15 +36,19 @@ DOI 匹配按标题文本相似度分为两档：
 
 ### GitHub Pages（当前）
 
-仓库配置了 GitHub Actions，push master 自动部署。需设置三个 Secrets：
+仓库配置了 GitHub Actions，push master 自动部署。GitHub Pages 是公开静态站点，部署产物中的 `config.js` 可以被任何访问者查看，因此不要把个人 `LLM_API_KEY` 写入 Pages 构建产物。
 
-| Secret | 示例 |
-|--------|------|
-| `LLM_API_BASE` | `https://api.deepseek.com/v1/chat/completions` |
-| `LLM_API_KEY` | `sk-...` |
-| `LLM_MODEL` | `deepseek-v4-flash` |
+当前 Pages workflow 只生成公开默认配置：
 
-用户可在页面高级设置中覆盖默认配置。
+| 配置 | 默认值 |
+|------|--------|
+| `apiBase` | `https://api.deepseek.com/v1/chat/completions` |
+| `apiKey` | 空 |
+| `model` | `deepseek-v4-flash` |
+
+用户可在页面「高级设置」中填写自己的 API Key。该 Key 保存在用户浏览器本地，不会提交到仓库；但仍属于浏览器端使用方式，请只在可信设备上使用。
+
+如需由系统统一持有 API Key，请使用后端代理部署，不要通过 GitHub Pages 静态文件分发 Key。
 
 ### 本地 Python（备选）
 
@@ -54,6 +58,14 @@ pip install -r requirements.txt
 cp .env.example .env
 python run.py
 ```
+
+本地后端可以在 `server/.env` 中配置：
+
+| 变量 | 示例 |
+|------|------|
+| `LLM_API_BASE` | `https://api.deepseek.com/v1/chat/completions` |
+| `LLM_API_KEY` | `sk-...` |
+| `LLM_MODEL` | `deepseek-v4-flash` |
 
 ## 测试
 

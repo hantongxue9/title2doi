@@ -20,6 +20,15 @@ from src.config import (
 )
 
 
+def _row_values(row) -> List[str]:
+    """兼容不同 openpyxl 版本，将一行单元格转为字符串列表。"""
+    values = []
+    for cell in row:
+        value = getattr(cell, "value", cell)
+        values.append(str(value) if value is not None else "")
+    return values
+
+
 def _is_likely_title(text: str) -> bool:
     """判断一段文本是否'像'一个文章标题。
 
@@ -178,8 +187,8 @@ def parse_excel(file_bytes: bytes) -> List[str]:
 
         # 读取前 50 行来确定表头位置
         rows_preview = []
-        for i, row in enumerate(ws.iter_rows(values_only=True)):
-            rows_preview.append([str(c) if c is not None else "" for c in row])
+        for i, row in enumerate(ws.iter_rows()):
+            rows_preview.append(_row_values(row))
             if i >= 50:
                 break
 
@@ -202,13 +211,16 @@ def parse_excel(file_bytes: bytes) -> List[str]:
             title_col = 0
             header_row_idx = 0
 
-        # 提取标题
-        for i, row in enumerate(rows_preview):
+        # 提取标题：预览行只用于定位表头，真正提取时遍历完整 sheet
+        for i, row in enumerate(ws.iter_rows()):
             if i <= header_row_idx:
                 continue
             if title_col < len(row):
-                text = str(row[title_col]).strip()
-                if text and text != "None" and _is_likely_title(text):
+                cell_value = getattr(row[title_col], "value", row[title_col])
+                if cell_value is None:
+                    continue
+                text = str(cell_value).strip()
+                if text and _is_likely_title(text):
                     cleaned = _clean_title(text)
                     normalized = cleaned.lower().replace(" ", "")
                     if normalized not in seen:

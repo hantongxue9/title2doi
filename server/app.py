@@ -13,10 +13,12 @@
 
 import io
 import base64
+import os
 import time
 from typing import Dict, Optional
 
 from flask import Flask, render_template, request, jsonify
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from src.env import load_dotenv, get_env
 from src.logger import setup_logging, log_request, log_llm_call, get_logger
@@ -26,6 +28,7 @@ from src.lookup import batch_lookup
 from src.config import (
     LLM_DEFAULT_API_BASE,
     LLM_DEFAULT_MODEL,
+    MAX_UPLOAD_BYTES,
 )
 
 # ── 启动：加载配置和日志 ──────────────────────────────────
@@ -33,6 +36,7 @@ load_dotenv()
 log = setup_logging()
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
 # 后端默认 LLM 配置（来自 .env 或 config.py）
 BACKEND_LLM_CONFIG = {
@@ -123,6 +127,12 @@ def api_parse():
     except Exception as e:
         get_logger("api").exception("parse error")
         return jsonify({"ok": False, "error": f"解析失败: {e}"})
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_too_large(_error):
+    max_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+    return jsonify({"ok": False, "error": f"文件过大，单个文件不能超过 {max_mb}MB"}), 413
 
 
 @app.route("/api/parse-llm", methods=["POST"])
@@ -279,4 +289,5 @@ def api_export_excel():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+    app.run(host="0.0.0.0", port=5000, debug=debug)

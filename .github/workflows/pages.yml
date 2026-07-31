@@ -23,16 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject secrets into config.js
+      - name: Generate public config.js
         run: |
           cat > config.js << EOF
           window.T2D_CONFIG = {
-            apiBase: '${{ secrets.LLM_API_BASE }}',
-            apiKey: '${{ secrets.LLM_API_KEY }}',
-            model: '${{ secrets.LLM_MODEL }}'
+            apiBase: 'https://api.deepseek.com/v1/chat/completions',
+            apiKey: '',
+            model: 'deepseek-v4-flash'
           };
           EOF
-          echo "config.js generated"
+          echo "public config.js generated"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

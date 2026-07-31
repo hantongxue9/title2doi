@@ -10,6 +10,31 @@ import subprocess
 import tempfile
 
 
+def run_python_tests(project_root):
+    """Run focused backend regression tests."""
+    sys.path.insert(0, os.path.join(project_root, "server"))
+
+    from openpyxl import Workbook
+    from src.parser import parse_excel
+
+    wb = Workbook()
+    ws = wb.active
+    ws["A1"] = "标题"
+    ws["A60"] = "Deep Learning for Natural Language Processing"
+
+    buf = tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False)
+    buf.close()
+    try:
+        wb.save(buf.name)
+        with open(buf.name, "rb") as f:
+            titles = parse_excel(f.read())
+    finally:
+        os.unlink(buf.name)
+
+    if titles != ["Deep Learning for Natural Language Processing"]:
+        raise AssertionError("parse_excel should read rows beyond the preview window, got %r" % titles)
+
+
 def extract_js(html_path):
     """提取 index.html 中的主 inline script"""
     with open(html_path, "r", encoding="utf-8") as f:
@@ -141,6 +166,10 @@ report();
         print(result.stderr, file=sys.stderr)
 
     os.unlink(tmp.name)
+    if result.returncode == 0:
+        print("Running backend regression tests...")
+        run_python_tests(project_root)
+        print("Backend regression tests passed")
     sys.exit(result.returncode)
 
 

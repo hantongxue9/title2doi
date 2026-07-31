@@ -12,6 +12,7 @@ REQUEST_INTERVAL = 0.3
 # 标题解析
 MIN_TITLE_LENGTH = 5       # 标题最短字符数（短于此的不是标题）
 MAX_TITLE_LENGTH = 600     # 标题最长字符数
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 上传文件最大 10MB
 SKIP_PATTERNS = [          # 明显不是标题的行（忽略大小写）
     "参考文献", "references", "附录", "appendix",
     "致谢", "acknowledgments", "acknowledgements",
