@@ -673,9 +673,9 @@ async function llmParse(text, apiBase, apiKey, model){
     })
   });
 
-  if (resp.status === 401 || resp.status === 403) throw new Error('API Key 无效或无权限。请检查高级设置中的 Key。');
-  if (resp.status === 402) throw new Error('API 账户余额不足，请前往 API 平台充值。');
-  if (resp.status === 404) throw new Error('API 端点不存在。请检查 API 地址。');
+  if (resp.status === 401 || resp.status === 403) throw new Error('API Key 无效或无权限。请检查高级设置中的 Key，或切换至「基础解析」。');
+  if (resp.status === 402) throw new Error('API 账户余额不足，请前往 API 平台充值，或切换至「基础解析」。');
+  if (resp.status === 404) throw new Error('API 端点不存在。请检查 API 地址，或切换至「基础解析」。');
   if (!resp.ok) {
     var err = await resp.text();
     try { var ej = JSON.parse(err); if (ej.message && ej.message.toLowerCase().indexOf('model') !== -1) throw new Error("模型 '" + model + "' 不存在。请在高级设置中修改模型名称。"); } catch(e) { if (e.message.indexOf('模型') !== -1) throw e; }
@@ -881,7 +881,7 @@ async function doParse(){
       }else if(isLLM){
         updateProgress('parse-bar-fill','parse-status-text',50,'正在调用 AI...');
         var cfg=getConfig();
-        if(!cfg.apiKey){stopProgress('parse-prog','parse-bar-fill');btn.disabled=false;btn.innerHTML='解析标题';setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写。');return}
+        if(!cfg.apiKey){stopProgress('parse-prog','parse-bar-fill');btn.disabled=false;btn.innerHTML='解析标题';setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写，或切换至「基础解析」。');return}
         startParseAnim('parse-status-text');
         try{
           var titles=await llmParse(rawText,cfg.apiBase,cfg.apiKey,cfg.model);
@@ -910,7 +910,7 @@ async function doParse(){
   }
 
   if(isLLM){
-    var cfg=getConfig();if(!cfg.apiKey){setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写。');return}
+    var cfg=getConfig();if(!cfg.apiKey){setMsg('parse-msg','err','未配置 API Key。请在右上角「高级设置」中填写，或切换至「基础解析」。');return}
     btn.disabled=true;btn.innerHTML='<span class="spin"></span>AI 分析中...';
     setMsg('parse-msg','inf','正在调用 AI 解析，复杂文本可能需要 5–15 秒...');
     startProgress('parse-prog','parse-bar-fill','parse-status-text');startParseAnim('parse-status-text');
