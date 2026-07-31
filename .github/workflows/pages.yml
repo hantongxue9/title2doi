@@ -23,6 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate default API key
+        run: |
+          if [ -z "${{ secrets.LLM_API_KEY }}" ]; then
+            echo "LLM_API_KEY is empty or unavailable. Configure it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
       - name: Inject default config into config.js
         run: |
           cat > config.js << EOF
