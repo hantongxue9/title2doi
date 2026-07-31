@@ -795,7 +795,7 @@ async function lookupDOI(title){
   var key=title.toLowerCase().trim();
   if(DOI_CACHE[key])return JSON.parse(JSON.stringify(DOI_CACHE[key])); // 深拷贝防调用方改坏缓存
 
-  var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false,journal:null,year:null};
+  var res={query_title:title,doi:null,matched_title:null,confidence:0,confidence_level:'低',error:null,is_found:false,journal:null,year:null,modified:[]};
   var url='https://api.crossref.org/works?query.title='+encodeURIComponent(title)+'&rows=5';
   for(var attempt=0;attempt<2;attempt++){
     try{
@@ -812,9 +812,18 @@ async function lookupDOI(title){
       };
       var best=null,bestScore=0,norm=[],pre=[];
       items.forEach(function(item){var t=(item.title||[])[0]||'';if(!t)return;var s=matchScore(title,t);var e={doi:item.DOI,title:t,score:s,journal:(item['container-title']||[])[0]||null,year:(item.issued&&item.issued['date-parts']&&item.issued['date-parts'][0])?item.issued['date-parts'][0][0]:null};(isPre(item)?pre:norm).push(e)});
+      // 预印本规则：非预印本存在时优先，仅当有预印本被跳过时标记
       var pool=norm.length?norm:pre;
+      if(norm.length&&pre.length)res.modified.push('优先正式版，跳过预印本');
       pool.forEach(function(e){if(e.score>bestScore){bestScore=e.score;best=e}});
-      if(best&&bestScore>=50){var cleanDoi=best.doi||'';if(/^10\.\d{4,}\//.test(cleanDoi))cleanDoi=cleanDoi.replace(/\.S\d{3}$/i,'');res.doi=cleanDoi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true;res.journal=best.journal;res.year=best.year}
+      if(best&&bestScore>=50){
+        var cleanDoi=best.doi||'';
+        // 补充材料后缀规则
+        if(/^10\.\d{4,}\//.test(cleanDoi)){var stripped=cleanDoi.replace(/\.S\d{3}$/i,'');if(stripped!==cleanDoi){cleanDoi=stripped;res.modified.push('去除补充材料后缀')}}
+        // 德文版→国际版规则（Angewandte Chemie，年份≥1956）
+        if(/^10\.1002\/ange\./.test(cleanDoi)){var yr=best.year||0;if(yr>=1956){cleanDoi=cleanDoi.replace(/^10\.1002\/ange\./,'10.1002/anie.');res.modified.push('德文版转国际版')}}
+        res.doi=cleanDoi;res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.is_found=true;res.journal=best.journal;res.year=best.year
+      }
       else{res.error='无可靠匹配（最佳分数: '+Math.round(bestScore)+'/100）';if(best){res.matched_title=best.title;res.confidence=Math.round(bestScore*10)/10;res.journal=best.journal;res.year=best.year}}
       break;
     }catch(e){if(attempt===0){await sleep(500);continue};res.error='查询失败: '+e.message}
@@ -843,7 +852,7 @@ function genExcel(results){
   var high=results.filter(function(r){return r.is_found&&r.confidence>=90});
   if(!high.length){alert('没有高置信度结果可导出。');return}
   var rows=[['序号','原始标题','DOI','匹配标题','来源','置信度','确认方式']];
-  high.forEach(function(r,i){rows.push([i+1,r.query_title,r.doi||'',r.matched_title||'',r.journal?(r.journal+(r.year?' ('+r.year+')':'')):'',Math.round(r.confidence)+'%',r.manual_confirmed?'人工确认':'自动高置信度'])});
+  high.forEach(function(r,i){var src=r.journal?(r.journal+(r.year?' ('+r.year+')':'')):'';if(r.modified&&r.modified.length)src+=src?' · '+r.modified.join(' / '):r.modified.join(' / ');rows.push([i+1,r.query_title,r.doi||'',r.matched_title||'',src,Math.round(r.confidence)+'%',r.manual_confirmed?'人工确认':'自动高置信度'])});
   var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'高置信度DOI结果');
   XLSX.writeFile(wb,'doi_high_confidence.xlsx');
 }
@@ -1014,7 +1023,9 @@ function renderResults(results){
     var retryBtn='<button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻ 重试</button>';
     var confirmBtn='<button class="btn-retry btn-confirm" onclick="confirmAsHigh('+i+')" title="将移至高置信度">✓ 确认</button>';
     var statusCell=r.is_found&&r.confidence>=90?(r.manual_confirmed?'人工确认':'✓'):(r.is_found?confirmBtn:retryBtn);
-    var srcCell=r.journal?esc(r.journal)+(r.year?' ('+r.year+')':''):'—';
+    var srcText=r.journal?(r.journal+(r.year?' ('+r.year+')':'')):'';
+    if(r.modified&&r.modified.length)srcText+=srcText?' · '+r.modified.join(' / '):r.modified.join(' / ');
+    var srcCell=srcText?esc(srcText):'—';
     h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="来源" class="ct">'+srcCell+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3);text-align:center">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;

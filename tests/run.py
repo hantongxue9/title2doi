@@ -152,6 +152,14 @@ assert(cleanDoi('10.1016/j.actbio.2021.11.001')==='10.1016/j.actbio.2021.11.001'
 assert(cleanDoi('10.1234/abc.S1')==='10.1234/abc.S1', 'keep single digit S1');
 assert(cleanDoi('10.1002/ange.202524546')==='10.1002/ange.202524546', 'keep wiley doi');
 
+// ---- 德文版→国际版转换（Angewandte Chemie）----
+console.log('--- ange to anie ---');
+function convAnge(doi,yr){if(/^10\\.1002\\/ange\\./.test(doi)&&yr>=1956)return doi.replace(/^10\\.1002\\/ange\\./,'10.1002/anie.');return doi}
+assert(convAnge('10.1002/ange.202016082',2020)==='10.1002/anie.202016082', 'ange→anie for modern year');
+assert(convAnge('10.1002/ange.202016082',1940)==='10.1002/ange.202016082', 'keep ange for pre-1956');
+assert(convAnge('10.1002/anie.202016082',2020)==='10.1002/anie.202016082', 'keep anie unchanged');
+assert(convAnge('10.1002/ange.202016082',null)==='10.1002/ange.202016082', 'keep ange when year unknown');
+
 // ---- DOI 缓存 ----
 console.log('--- DOI cache ---');
 // 模拟 lookupDOI 的缓存逻辑
