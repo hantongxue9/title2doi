@@ -17,7 +17,7 @@ import os
 import time
 from typing import Dict, Optional
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from src.env import load_dotenv, get_env
@@ -77,8 +77,9 @@ def _merge_llm_config(frontend: Optional[Dict[str, str]] = None) -> Dict[str, st
 
 @app.route("/")
 def index():
-    """主页面"""
-    return render_template("index.html")
+    """主页面：直接服务根目录的 index.html（单一来源，避免模板漂移）"""
+    root_index = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "index.html")
+    return send_file(root_index)
 
 
 @app.route("/api/parse", methods=["POST"])

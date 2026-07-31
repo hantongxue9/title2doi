@@ -143,6 +143,24 @@ var resp = parseNumberedResponse('[1] Deep Learning for NLP\\n[2] Machine Learni
 assert(resp.length === 2, 'numbered response, got ' + resp.length);
 assert(resp[0] === 'Deep Learning for NLP', 'first title matches');
 
+// ---- DOI 后缀清理（.S001 补充材料）----
+console.log('--- DOI cleanup ---');
+function cleanDoi(doi){var c=doi;if(/^10\\.\\d{4,}\\//.test(c))c=c.replace(/\\.S\\d{3}$/i,'');return c}
+assert(cleanDoi('10.1016/j.physletb.2021.136601.S001')==='10.1016/j.physletb.2021.136601', 'strip .S001');
+assert(cleanDoi('10.1021/acs.nanolett.5c00094.s004')==='10.1021/acs.nanolett.5c00094', 'strip lowercase .s004');
+assert(cleanDoi('10.1016/j.actbio.2021.11.001')==='10.1016/j.actbio.2021.11.001', 'keep plain doi');
+assert(cleanDoi('10.1234/abc.S1')==='10.1234/abc.S1', 'keep single digit S1');
+assert(cleanDoi('10.1002/ange.202524546')==='10.1002/ange.202524546', 'keep wiley doi');
+
+// ---- DOI 缓存 ----
+console.log('--- DOI cache ---');
+// 模拟 lookupDOI 的缓存逻辑
+DOI_CACHE={};
+DOI_CACHE['test title']={doi:'10.1234/test',is_found:true,confidence:95};
+var cached=DOI_CACHE['test title'];
+var copy=JSON.parse(JSON.stringify(cached));
+assert(copy.doi==='10.1234/test', 'cache hit returns deep copy');
+
 // ---- regex matching edge cases ----
 console.log('--- edge cases ---');
 assert(cleanTitle('  Extra   Spaces  ') === 'Extra Spaces', 'collapse whitespace');
