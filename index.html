@@ -190,6 +190,8 @@
 
   .btn-retry{background:var(--brand-50);border:1px solid var(--brand-200);cursor:pointer;font-size:12px;padding:3px 10px;border-radius:4px;color:var(--brand-600);transition:all .15s;font-family:var(--font);line-height:1.5;white-space:nowrap;margin-left:4px}
   .btn-retry:hover{background:var(--brand-100);border-color:var(--brand-400);color:var(--brand-700)}
+  .btn-confirm{background:var(--green-50);border-color:var(--green-500);color:var(--green-700)}
+  .btn-confirm:hover{background:var(--green-100);border-color:var(--green-600);color:var(--green-800)}
   
   
 
@@ -995,7 +997,7 @@ function renderResults(results){
     var cf=r.confidence>0?Math.round(r.confidence)+'%':'—';
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
     var retryBtn='<button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻ 重试</button>';
-    var confirmBtn='<button class="btn-retry" onclick="confirmAsHigh('+i+')" title="将移至高置信度">✓ 确认</button>';
+    var confirmBtn='<button class="btn-retry btn-confirm" onclick="confirmAsHigh('+i+')" title="将移至高置信度">✓ 确认</button>';
     var statusCell=r.is_found&&r.confidence>=90?'✓':(r.is_found?retryBtn+' '+confirmBtn:retryBtn);
     h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3)">'+statusCell+'</td></tr>';
   });
@@ -1064,7 +1066,7 @@ async function batchRetry(filter){
     var row=document.querySelector('tr[data-row="'+idx+'"]');
     if(row){var td=row.querySelector('td:last-child');if(td)td.innerHTML='<span class="spin"></span> 重试中...'}
     ST.results[idx]=await lookupDOI(old.query_title);
-    if(row){var td=row.querySelector('td:last-child'),nr=ST.results[idx];if(td)td.innerHTML=(nr.is_found&&nr.confidence>=90)?'✓':(nr.is_found?'<button class=\"btn-retry\" onclick=\"retrySingleQuery('+idx+',this)\" title=\"重试此条\">↻ 重试</button> <button class=\"btn-retry\" onclick=\"confirmAsHigh('+idx+')\" title=\"将移至高置信度\">✓ 确认</button>':'<button class=\"btn-retry\" onclick=\"retrySingleQuery('+idx+',this)\" title=\"重试此条\">↻ 重试</button>')}
+    if(row){var td=row.querySelector('td:last-child'),nr=ST.results[idx];if(td)td.innerHTML=(nr.is_found&&nr.confidence>=90)?'✓':(nr.is_found?'<button class=\"btn-retry\" onclick=\"retrySingleQuery('+idx+',this)\" title=\"重试此条\">↻ 重试</button> <button class=\"btn-retry btn-confirm\" onclick=\"confirmAsHigh('+idx+')\" title=\"将移至高置信度\">✓ 确认</button>':'<button class=\"btn-retry\" onclick=\"retrySingleQuery('+idx+',this)\" title=\"重试此条\">↻ 重试</button>')}
   }
   var savedFilter=ST.resultFilter;
   renderResults(ST.results);
