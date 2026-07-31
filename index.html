@@ -279,6 +279,7 @@
 
   <div class="set-panel" id="set-panel">
     <p class="t3" style="font-size:12.5px;margin-bottom:14px">以下为可选配置，<strong>留空则使用服务器默认设置</strong>。配置保存在本浏览器中。</p>
+    <p class="t3" id="cfg-status" style="font-size:12.5px;margin-bottom:14px"></p>
     <div class="set-grid">
       <div class="full"><label class="fl">API 地址 <span class="opt">（留空使用默认）</span></label><input type="text" id="cfg-api-base" placeholder="https://api.deepseek.com/v1/chat/completions"></div>
       <div class="full"><label class="fl">API Key <span class="opt">（留空使用服务器默认）</span></label><input type="password" id="cfg-api-key" placeholder="sk-..."></div>
@@ -440,10 +441,17 @@ function loadSettings(){
 }
 function saveSettings(){
   localStorage.setItem('t2d_cfg',JSON.stringify({apiBase:$('cfg-api-base').value.trim(),apiKey:$('cfg-api-key').value.trim(),model:$('cfg-model').value.trim()}));
-  $('set-panel').classList.remove('open');updateSetBtn();toast('设置已保存');
+  $('set-panel').classList.remove('open');updateSetBtn();updateConfigStatus();toast('设置已保存');
 }
-function resetSettings(){$('cfg-api-base').value='';$('cfg-api-key').value='';$('cfg-model').value='';localStorage.removeItem('t2d_cfg');updateSetBtn();toast('已清除自定义设置')}
+function resetSettings(){$('cfg-api-base').value='';$('cfg-api-key').value='';$('cfg-model').value='';localStorage.removeItem('t2d_cfg');updateSetBtn();updateConfigStatus();toast('已清除自定义设置')}
 function updateSetBtn(){var c=getConfig();$('set-btn').classList.toggle('has-val',!!c.apiKey)}
+function updateConfigStatus(){
+  var saved={};
+  try{saved=JSON.parse(localStorage.getItem('t2d_cfg')||'{}')}catch(e){}
+  var status=$('cfg-status');if(!status)return;
+  if($('cfg-api-key').value.trim()||saved.apiKey){status.textContent='当前使用：本浏览器自定义 API Key。清除后恢复默认配置。';return}
+  status.textContent=INJECTED.apiKey?'当前使用：部署默认 API Key。':'当前使用：默认配置未包含 API Key，需要在此填写后使用 AI 解析。';
+}
 
 /* ═══════════════════════════════════════════════════════════
    Tabs & Engine
@@ -828,8 +836,8 @@ function genExcel(results){
   if(typeof XLSX==='undefined'){alert('Excel 组件未加载，请检查网络后刷新页面。');return}
   var high=results.filter(function(r){return r.is_found&&r.confidence>=90});
   if(!high.length){alert('没有高置信度结果可导出。');return}
-  var rows=[['序号','原始标题','DOI','匹配标题','置信度']];
-  high.forEach(function(r,i){rows.push([i+1,r.query_title,r.doi||'',r.matched_title||'',Math.round(r.confidence)+'%'])});
+  var rows=[['序号','原始标题','DOI','匹配标题','置信度','确认方式']];
+  high.forEach(function(r,i){rows.push([i+1,r.query_title,r.doi||'',r.matched_title||'',Math.round(r.confidence)+'%',r.manual_confirmed?'人工确认':'自动高置信度'])});
   var ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'高置信度DOI结果');
   XLSX.writeFile(wb,'doi_high_confidence.xlsx');
 }
@@ -999,7 +1007,7 @@ function renderResults(results){
     var doi=r.doi?'<a href="https://doi.org/'+esc(r.doi)+'" target="_blank" rel="noopener">'+esc(r.doi)+'</a> <button class="btn-4" style="padding:2px 6px;font-size:11px;cursor:pointer;border:none;background:var(--bg);border-radius:3px;color:var(--text-3)" onclick="copySingleDOI(\''+esc(r.doi||'')+'\',this)" title="复制此条 DOI">📋</button>':'—';
     var retryBtn='<button class="btn-retry" onclick="retrySingleQuery('+i+',this)" title="重试此条">↻ 重试</button>';
     var confirmBtn='<button class="btn-retry btn-confirm" onclick="confirmAsHigh('+i+')" title="将移至高置信度">✓ 确认</button>';
-    var statusCell=r.is_found&&r.confidence>=90?'✓':(r.is_found?confirmBtn:retryBtn);
+    var statusCell=r.is_found&&r.confidence>=90?(r.manual_confirmed?'人工确认':'✓'):(r.is_found?confirmBtn:retryBtn);
     h+='<tr data-conf="'+confClass+'" data-found="'+(r.is_found?'1':'0')+'" data-row="'+i+'"><td data-label="#">'+(i+1)+'</td><td class="ct" data-label="原始标题">'+esc(r.query_title)+'</td><td class="cd" data-label="DOI">'+doi+'</td><td class="ct" data-label="匹配标题">'+esc(r.matched_title||'—')+'</td><td data-label="置信度">'+cf+' '+tag+'</td><td data-label="状态" style="font-size:12px;color:var(--text-3);text-align:center">'+statusCell+'</td></tr>';
   });
   h+='</tbody></table>';$('results-table').innerHTML=h;
@@ -1035,7 +1043,7 @@ function updateBatchBtn(){
 function confirmAsHigh(idx){
   if(!ST.results||!ST.results[idx])return;
   var r=ST.results[idx],savedFilter=ST.resultFilter;
-  r.confidence=91;r.confidence_level='高';r.is_found=true;
+  r.confidence=91;r.confidence_level='高';r.is_found=true;r.manual_confirmed=true;
   renderResults(ST.results);
   if(savedFilter&&savedFilter!=='all')setFilter(savedFilter);
   toast('已移至高置信度 ✓');
@@ -1098,7 +1106,8 @@ function resetAll(){stopParseAnim();ST.previewTitles=null;$('preview-table-wrap'
 
 /* init */
 loadSettings();
-['cfg-api-base','cfg-api-key','cfg-model'].forEach(function(id){$(id).addEventListener('input',updateSetBtn)});
+updateConfigStatus();
+['cfg-api-base','cfg-api-key','cfg-model'].forEach(function(id){$(id).addEventListener('input',function(){updateSetBtn();updateConfigStatus()})});
 
 // Ctrl+Enter 快捷解析
 $('raw-text').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();doParse()}});
