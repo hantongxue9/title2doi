@@ -1024,10 +1024,10 @@ function setFilter(f){
 function updateBatchBtn(){
   var f=ST.resultFilter,btn=$('batch-retry-btn');
   if(!btn)return;
-  if(f!=='low'&&f!=='none'){btn.classList.add('dn');return}
+  if(f!=='none'){btn.classList.add('dn');return}
   btn.classList.remove('dn');
   btn.className='btn btn-1 btn-sm';
-  btn.textContent='🔄 全部重试 '+(f==='low'?'低置信度':'未找到')+'条目';
+  btn.textContent='🔄 全部重试 未找到条目';
   btn.onclick=function(){batchRetry(f)};
 }
 
